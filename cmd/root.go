@@ -10,7 +10,9 @@ import (
 // RootCmd shows usage.
 var RootCmd = &cobra.Command{
 	Use:   "glacier",
-	Short: "Upload and manage files in AWS Glacier",
+	Short: "Upload files to AWS Glacier",
+	Long: `If you want to use a non-default AWS profile from your credentials file, specify
+the profile you want to use with the --profile flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Usage()
 	},
@@ -30,4 +32,6 @@ func init() {
 		uploadCmd,
 		genDocsCmd,
 	)
+
+	RootCmd.PersistentFlags().String("profile", "default", "AWS credentials profile to use")
 }

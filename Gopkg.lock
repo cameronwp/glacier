@@ -2,10 +2,22 @@
 
 
 [[projects]]
+  name = "github.com/aws/aws-sdk-go"
+  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/credentials","aws/endpoints","aws/request","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/rest","private/protocol/restjson","service/glacier"]
+  revision = "fd9b7491525896e01db35c1e20a5bd94bf11491c"
+  version = "v1.12.48"
+
+[[projects]]
   name = "github.com/cpuguy83/go-md2man"
   packages = ["md2man"]
   revision = "1d903dcb749992f3741d744c0f8376b4bd7eb3e1"
   version = "v1.0.7"
+
+[[projects]]
+  name = "github.com/go-ini/ini"
+  packages = ["."]
+  revision = "32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a"
+  version = "v1.32.0"
 
 [[projects]]
   branch = "master"
@@ -18,6 +30,11 @@
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
+
+[[projects]]
+  name = "github.com/jmespath/go-jmespath"
+  packages = ["."]
+  revision = "0b12d6b5"
 
 [[projects]]
   name = "github.com/mattn/go-runewidth"
@@ -100,6 +117,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "17c2501739582d6b13b3e9e18e5bfaf872cf0006eed9ad1d1983ad818129d86f"
+  inputs-digest = "f85e4b87b2d7cbd4fb9871bda6d915655535dc18189aa58f723699975cba4bdb"
   solver-name = "gps-cdcl"
   solver-version = 1
