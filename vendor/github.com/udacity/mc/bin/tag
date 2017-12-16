@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e
+
+if [[ "$GITHUB_TOKEN" == "" ]];
+then
+    echo "You need to set GITHUB_TOKEN as an ENV var"
+    exit 1
+fi
+
+PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
+TAG=$(curl https://api.github.com/repos/udacity/mc/pulls/$PR_NUMBER?access_token=$GITHUB_TOKEN | jq .title)
+
+TAG=$(sed -e 's/^"//' -e 's/"$//' <<<"$TAG")
+
+git tag $TAG

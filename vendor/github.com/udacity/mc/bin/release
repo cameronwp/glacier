@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -e
+
+if [[ ! -d $GOPATH/bin/github-release ]];
+then
+    go get -f -u github.com/aktau/github-release
+fi
+
+if [[ "$GITHUB_TOKEN" == "" ]];
+then
+    echo "You need to set GITHUB_TOKEN as an ENV var"
+    exit 1
+fi
+
+REPO_DIR=$(git rev-parse --show-toplevel)
+DIST_DIR=$REPO_DIR/dist
+TAG=$(git describe --abbrev=0 --tags)
+
+create_release() {
+    github-release release \
+        --repo mc \
+        --user udacity \
+        --tag "${TAG}" \
+        --name "${TAG}" \
+
+    for binary in $(ls $DIST_DIR); do
+        github-release upload \
+            --user udacity \
+            --repo mc \
+            --tag "${TAG}" \
+            --name "${binary}" \
+            --file $DIST_DIR/$binary
+    done
+}
+
+create_release
