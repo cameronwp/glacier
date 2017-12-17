@@ -3,7 +3,7 @@
 
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
-  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/credentials","aws/endpoints","aws/request","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/rest","private/protocol/restjson","service/glacier"]
+  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restjson","private/protocol/xml/xmlutil","service/glacier","service/sts"]
   revision = "fd9b7491525896e01db35c1e20a5bd94bf11491c"
   version = "v1.12.48"
 
@@ -20,12 +20,6 @@
   version = "v1.32.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/gocarina/gocsv"
-  packages = ["."]
-  revision = "7099e67763c29f812fa2ed7083f32e38be60125a"
-
-[[projects]]
   name = "github.com/inconshreveable/mousetrap"
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
@@ -37,28 +31,10 @@
   revision = "0b12d6b5"
 
 [[projects]]
-  name = "github.com/mattn/go-runewidth"
-  packages = ["."]
-  revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
-  version = "v0.0.2"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/olekukonko/tablewriter"
-  packages = ["."]
-  revision = "65fec0d89a572b4367094e2058d3ebe667de3b60"
-
-[[projects]]
   name = "github.com/russross/blackfriday"
   packages = ["."]
   revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
   version = "v1.5"
-
-[[projects]]
-  name = "github.com/sirupsen/logrus"
-  packages = ["."]
-  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
-  version = "v1.0.4"
 
 [[projects]]
   name = "github.com/spf13/cobra"
@@ -73,42 +49,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/udacity/go-hoth"
-  packages = ["."]
-  revision = "fc4fa1fad97258e024e14b750951b5eee5e39380"
-
-[[projects]]
-  name = "github.com/udacity/mc"
-  packages = ["cc","cm","cmd","cmd/auth","cmd/auth/impersonate","cmd/cm","cmd/guru","cmd/livehelp","cmd/mentor","cmd/nd","cmd/reviews","cmd/reviews/opportunities","config","creds","csv","display","flagging","gae","guru","httpclient","lang","livehelp","logging","mentor","payments","reviews","students"]
-  revision = "d427e603d6780b7c43174d04c313784bc76f6034"
-  version = "1.2.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/udacity/uy-go"
-  packages = ["."]
-  revision = "c9d731385e0e2ecac29c76d3fac9382537db53a3"
-
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
-  revision = "94eea52f7b742c7cbe0b03b22f0c4c8631ece122"
-
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/sys"
-  packages = ["unix","windows"]
-  revision = "571f7bbbe08da2a8955aed9d4db316e78630e9a3"
-
-[[projects]]
-  name = "gopkg.in/cheggaaa/pb.v1"
-  packages = ["."]
-  revision = "18d384da9bdc1e5a08fc2a62a494c321d9ae74ea"
-  version = "v1.0.19"
-
-[[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -117,6 +57,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f85e4b87b2d7cbd4fb9871bda6d915655535dc18189aa58f723699975cba4bdb"
+  inputs-digest = "b20647cee4af0e414c1875072c0ef6fc1f92b80e8489a9e41d48868f64ae72c7"
   solver-name = "gps-cdcl"
   solver-version = 1
