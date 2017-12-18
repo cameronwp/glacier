@@ -1,10 +1,15 @@
 package cmd
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -12,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/glacier"
 	"github.com/spf13/cobra"
+	"gopkg.in/cheggaaa/pb.v2"
 )
 
 var (
@@ -51,7 +57,7 @@ var uploadCmd = &cobra.Command{
 		svc := glacier.New(sess)
 
 		for fp := range files {
-			err = upload(svc, fp)
+			err = uploadFileMultipart(svc, fp)
 			if err != nil {
 				return err
 			}
@@ -111,13 +117,15 @@ func getFiles(fp string, files map[string]struct{}) {
 	files[fp] = struct{}{}
 }
 
-func upload(svc *glacier.Glacier, fp string) error {
-	partSize := int64(1 << 22)
+func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
+	partSize := int64(1 << 20) // 1MB
+	baseName := filepath.Base(fp)
 
 	initResult, err := svc.InitiateMultipartUpload(&glacier.InitiateMultipartUploadInput{
-		AccountId: aws.String("-"),
-		PartSize:  aws.String(fmt.Sprintf("%d", partSize)), // 4MB part size
-		VaultName: aws.String(vault),
+		AccountId:          aws.String("-"),
+		ArchiveDescription: aws.String(baseName),
+		PartSize:           aws.String(fmt.Sprintf("%d", partSize)),
+		VaultName:          aws.String(vault),
 	})
 	if err != nil {
 		return formatAWSError(err)
@@ -129,47 +137,61 @@ func upload(svc *glacier.Glacier, fp string) error {
 	}
 
 	var totalSize int64
-	if stats, err := f.Stat(); err != nil {
+	if stats, err := f.Stat(); err == nil {
 		totalSize = stats.Size()
 	} else {
 		return err
 	}
 
-	for i := int64(0); i < totalSize; i = i + partSize {
-		start := i
-		end := i + partSize - 1
-		if end > totalSize {
-			end = totalSize
+	bar := pb.ProgressBarTemplate(fmt.Sprintf(`%s: {{bar . | green}} {{counters . | blue }}`, baseName)).Start64(totalSize)
+
+	startB := int64(0)
+	var wg sync.WaitGroup
+	for {
+		wg.Add(1)
+
+		// either the part size, or the amount of file remaining, whichever is smaller
+		contentLength := int(math.Min(float64(partSize), float64(totalSize-startB)))
+		buf := make([]byte, contentLength)
+		n, _ := io.ReadFull(f, buf)
+		if n == 0 {
+			wg.Done()
+			break
 		}
 
-		uploadInput := &glacier.UploadMultipartPartInput{
-			AccountId: aws.String("-"),
-			Body:      f,
-			Range:     aws.String(fmt.Sprintf("bytes %d-%d/%d", start, end, totalSize)),
-			UploadId:  aws.String(*initResult.UploadId),
-			VaultName: aws.String(vault),
-		}
+		endB := startB + int64(n)
 
-		uploadResult, err := svc.UploadMultipartPart(uploadInput)
-		if err != nil {
-			return formatAWSError(err)
-		}
+		go func(b []byte, s int64, e int64) {
+			_, err := svc.UploadMultipartPart(&glacier.UploadMultipartPartInput{
+				AccountId: aws.String("-"),
+				Body:      bytes.NewReader(buf),
+				Checksum:  aws.String(fmt.Sprintf("%x", sha256.Sum256(buf[:n]))),
+				Range:     aws.String(fmt.Sprintf("bytes %d-%d/*", s, e-1)),
+				UploadId:  aws.String(*initResult.UploadId),
+				VaultName: aws.String(vault),
+			})
+			if err != nil {
+				panic(formatAWSError(err))
+			}
+			bar.Add(contentLength)
+			wg.Done()
+		}(buf, startB, endB)
 
-		fmt.Println(uploadResult)
+		startB = endB
 	}
 
-	completeResult, err := svc.CompleteMultipartUpload(&glacier.CompleteMultipartUploadInput{
-		AccountId:   aws.String("-"),
-		ArchiveSize: aws.String(fmt.Sprintf("%d", totalSize)),
-		UploadId:    aws.String(*initResult.UploadId),
-		VaultName:   aws.String(vault),
+	wg.Wait()
+
+	_, err = svc.AbortMultipartUpload(&glacier.AbortMultipartUploadInput{
+		AccountId: aws.String("-"),
+		UploadId:  aws.String(*initResult.UploadId),
+		VaultName: aws.String(vault),
 	})
-
-	fmt.Println(completeResult)
-
 	if err != nil {
 		return formatAWSError(err)
 	}
+
+	bar.Finish()
 
 	return nil
 }

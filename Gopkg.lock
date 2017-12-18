@@ -31,6 +31,18 @@
   revision = "0b12d6b5"
 
 [[projects]]
+  name = "github.com/mattn/go-colorable"
+  packages = ["."]
+  revision = "941b50ebc6efddf4c41c8e4537a5f68a4e686b24"
+  version = "v0.0.8"
+
+[[projects]]
+  name = "github.com/mattn/go-isatty"
+  packages = ["."]
+  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
+  version = "v0.0.3"
+
+[[projects]]
   name = "github.com/russross/blackfriday"
   packages = ["."]
   revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
@@ -49,6 +61,48 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = ["unix"]
+  revision = "571f7bbbe08da2a8955aed9d4db316e78630e9a3"
+
+[[projects]]
+  name = "gopkg.in/VividCortex/ewma.v1"
+  packages = ["."]
+  revision = "b24eb346a94c3ba12c1da1e564dbac1b498a77ce"
+  version = "v1.1.1"
+
+[[projects]]
+  name = "gopkg.in/cheggaaa/pb.v2"
+  packages = [".","termutil"]
+  revision = "c112833d014c77e8bde723fd0158e3156951639f"
+  version = "v2.0.6"
+
+[[projects]]
+  name = "gopkg.in/fatih/color.v1"
+  packages = ["."]
+  revision = "570b54cabe6b8eb0bc2dfce68d964677d63b5260"
+  version = "v1.5.0"
+
+[[projects]]
+  name = "gopkg.in/mattn/go-colorable.v0"
+  packages = ["."]
+  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
+  version = "v0.0.9"
+
+[[projects]]
+  name = "gopkg.in/mattn/go-isatty.v0"
+  packages = ["."]
+  revision = "fc9e8d8ef48496124e79ae0df75490096eccf6fe"
+  version = "v0.0.2"
+
+[[projects]]
+  name = "gopkg.in/mattn/go-runewidth.v0"
+  packages = ["."]
+  revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
+  version = "v0.0.2"
+
+[[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -57,6 +111,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b20647cee4af0e414c1875072c0ef6fc1f92b80e8489a9e41d48868f64ae72c7"
+  inputs-digest = "11c7a3e90be460127e1f6604f213a55a0327ec62816d4ab02f8b9febd1862158"
   solver-name = "gps-cdcl"
   solver-version = 1
