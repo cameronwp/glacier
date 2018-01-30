@@ -109,6 +109,8 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 		return err
 	}
 
+	// TODO: zip the file first
+
 	var th treehash.MultiTreeHash
 
 	var totalSize int64
@@ -175,7 +177,7 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 
 	bar.Finish()
 
-	// TODO: write the archive ID to a file
+	// TODO: sync the archive with an S3 bucket
 	fmt.Println(result)
 	fmt.Println(*initResult.UploadId)
 
