@@ -3,7 +3,35 @@
 
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
-  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restjson","private/protocol/xml/xmlutil","service/glacier","service/sts"]
+  packages = [
+    "aws",
+    "aws/awserr",
+    "aws/awsutil",
+    "aws/client",
+    "aws/client/metadata",
+    "aws/corehandlers",
+    "aws/credentials",
+    "aws/credentials/ec2rolecreds",
+    "aws/credentials/endpointcreds",
+    "aws/credentials/stscreds",
+    "aws/defaults",
+    "aws/ec2metadata",
+    "aws/endpoints",
+    "aws/request",
+    "aws/session",
+    "aws/signer/v4",
+    "internal/shareddefaults",
+    "private/protocol",
+    "private/protocol/json/jsonutil",
+    "private/protocol/jsonrpc",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/restjson",
+    "private/protocol/xml/xmlutil",
+    "service/glacier",
+    "service/sts"
+  ]
   revision = "fd9b7491525896e01db35c1e20a5bd94bf11491c"
   version = "v1.12.48"
 
@@ -12,6 +40,12 @@
   packages = ["md2man"]
   revision = "1d903dcb749992f3741d744c0f8376b4bd7eb3e1"
   version = "v1.0.7"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/cyberdelia/treehash"
+  packages = ["."]
+  revision = "169735dc3e9116067d72fd0443ccc0e5ba8ab743"
 
 [[projects]]
   name = "github.com/go-ini/ini"
@@ -50,7 +84,10 @@
 
 [[projects]]
   name = "github.com/spf13/cobra"
-  packages = [".","doc"]
+  packages = [
+    ".",
+    "doc"
+  ]
   revision = "7b2c5ac9fc04fc5efafb60700713d4fa609b777b"
   version = "v0.0.1"
 
@@ -74,7 +111,10 @@
 
 [[projects]]
   name = "gopkg.in/cheggaaa/pb.v2"
-  packages = [".","termutil"]
+  packages = [
+    ".",
+    "termutil"
+  ]
   revision = "c112833d014c77e8bde723fd0158e3156951639f"
   version = "v2.0.6"
 
@@ -111,6 +151,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "11c7a3e90be460127e1f6604f213a55a0327ec62816d4ab02f8b9febd1862158"
+  inputs-digest = "18933401d419e20df21f803b208d4933e6690c270a3787105328708e25596320"
   solver-name = "gps-cdcl"
   solver-version = 1

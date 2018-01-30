@@ -7,6 +7,12 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
+// shared flags
+var (
+	region string
+	vault  string
+)
+
 // RootCmd shows usage.
 var RootCmd = &cobra.Command{
 	Use:   "glacier",

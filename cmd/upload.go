@@ -16,15 +16,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/glacier"
+	"github.com/cyberdelia/treehash"
 	"github.com/spf13/cobra"
 	"gopkg.in/cheggaaa/pb.v2"
 )
 
-var (
-	region string
-	target string
-	vault  string
-)
+var target string
 
 var uploadCmd = &cobra.Command{
 	Use:   "upload",
@@ -171,6 +168,7 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 				VaultName: aws.String(vault),
 			})
 			if err != nil {
+				// TODO: queue the part to be reuploaded
 				panic(formatAWSError(err))
 			}
 			bar.Add(contentLength)
@@ -182,16 +180,38 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 
 	wg.Wait()
 
-	_, err = svc.AbortMultipartUpload(&glacier.AbortMultipartUploadInput{
-		AccountId: aws.String("-"),
-		UploadId:  aws.String(*initResult.UploadId),
-		VaultName: aws.String(vault),
-	})
+	g, err := os.Open(fp)
+	if err != nil {
+		return err
+	}
+
+	th := treehash.New()
+	written, err := io.Copy(th, g)
+	if err != nil {
+		return err
+	}
+
+	if written == 0 {
+		return fmt.Errorf("cannot compute tree hash | missing full file buffer")
+	}
+
+	input := &glacier.CompleteMultipartUploadInput{
+		AccountId:   aws.String("-"),
+		ArchiveSize: aws.String(fmt.Sprintf("%d", totalSize)),
+		Checksum:    aws.String(fmt.Sprintf("%x", th.Sum(nil))),
+		UploadId:    aws.String(*initResult.UploadId),
+		VaultName:   aws.String(vault),
+	}
+	result, err := svc.CompleteMultipartUpload(input)
 	if err != nil {
 		return formatAWSError(err)
 	}
 
 	bar.Finish()
+
+	// TODO: write the archive ID to a file
+	fmt.Println(result)
+	fmt.Println(*initResult.UploadId)
 
 	return nil
 }
