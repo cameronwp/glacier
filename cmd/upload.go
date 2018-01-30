@@ -13,8 +13,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/glacier"
 	"github.com/nickvanw/treehash"
 	"github.com/spf13/cobra"
@@ -27,34 +25,14 @@ var uploadCmd = &cobra.Command{
 	Use:   "upload",
 	Short: "Upload a file or directory to Glacier",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		profile, err := cmd.Flags().GetString("profile")
-		if err != nil {
-			return err
-		}
-
 		files := make(map[string]struct{})
 		getFiles(target, files)
 		if len(files) == 0 {
 			return fmt.Errorf("invalid target: no file(s) found")
 		}
 
-		sess, err := session.NewSession(&aws.Config{
-			Region:      aws.String(region),
-			Credentials: credentials.NewSharedCredentials("", profile),
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = sess.Config.Credentials.Get()
-		if err != nil {
-			return fmt.Errorf("AWS credentials error | %s", err)
-		}
-
-		svc := glacier.New(sess)
-
 		for fp := range files {
-			err = uploadFileMultipart(svc, fp)
+			err := uploadFileMultipart(svc, fp)
 			if err != nil {
 				return err
 			}
@@ -65,8 +43,6 @@ var uploadCmd = &cobra.Command{
 }
 
 func init() {
-	uploadCmd.Flags().StringVarP(&region, "region", "r", "us-east-1", "AWS region of the vault")
-
 	uploadCmd.Flags().StringVarP(&target, "target", "t", "", "Path to file or directory to upload")
 	err := uploadCmd.MarkFlagRequired("target")
 	if err != nil {
@@ -185,28 +161,12 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 
 	wg.Wait()
 
-	// g, err := os.Open(fp)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// th := treehash.New()
-	// written, err := io.Copy(th, g)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if written == 0 {
-	// 	return fmt.Errorf("cannot compute tree hash | missing full file buffer")
-	// }
-
 	input := &glacier.CompleteMultipartUploadInput{
 		AccountId:   aws.String("-"),
 		ArchiveSize: aws.String(fmt.Sprintf("%d", totalSize)),
-		// Checksum:    aws.String(fmt.Sprintf("%x", th.Sum(nil))),
-		Checksum:  aws.String(th.Hash()),
-		UploadId:  aws.String(*initResult.UploadId),
-		VaultName: aws.String(vault),
+		Checksum:    aws.String(th.Hash()),
+		UploadId:    aws.String(*initResult.UploadId),
+		VaultName:   aws.String(vault),
 	}
 	result, err := svc.CompleteMultipartUpload(input)
 	if err != nil {
