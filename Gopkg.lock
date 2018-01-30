@@ -42,12 +42,6 @@
   version = "v1.0.7"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/cyberdelia/treehash"
-  packages = ["."]
-  revision = "169735dc3e9116067d72fd0443ccc0e5ba8ab743"
-
-[[projects]]
   name = "github.com/go-ini/ini"
   packages = ["."]
   revision = "32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a"
@@ -151,6 +145,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "18933401d419e20df21f803b208d4933e6690c270a3787105328708e25596320"
+  inputs-digest = "11c7a3e90be460127e1f6604f213a55a0327ec62816d4ab02f8b9febd1862158"
   solver-name = "gps-cdcl"
   solver-version = 1

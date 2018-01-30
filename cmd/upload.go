@@ -16,7 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/glacier"
-	"github.com/cyberdelia/treehash"
+	"github.com/nickvanw/treehash"
 	"github.com/spf13/cobra"
 	"gopkg.in/cheggaaa/pb.v2"
 )
@@ -133,6 +133,8 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 		return err
 	}
 
+	var th treehash.MultiTreeHash
+
 	var totalSize int64
 	if stats, err := f.Stat(); err == nil {
 		totalSize = stats.Size()
@@ -158,11 +160,14 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 
 		endB := startB + int64(n)
 
-		go func(b []byte, s int64, e int64) {
+		hash := fmt.Sprintf("%x", sha256.Sum256(buf[:n]))
+		th.Add(hash)
+
+		go func(b []byte, s int64, e int64, h string) {
 			_, err := svc.UploadMultipartPart(&glacier.UploadMultipartPartInput{
 				AccountId: aws.String("-"),
 				Body:      bytes.NewReader(buf),
-				Checksum:  aws.String(fmt.Sprintf("%x", sha256.Sum256(buf[:n]))),
+				Checksum:  aws.String(h),
 				Range:     aws.String(fmt.Sprintf("bytes %d-%d/*", s, e-1)),
 				UploadId:  aws.String(*initResult.UploadId),
 				VaultName: aws.String(vault),
@@ -173,34 +178,35 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 			}
 			bar.Add(contentLength)
 			wg.Done()
-		}(buf, startB, endB)
+		}(buf, startB, endB, hash)
 
 		startB = endB
 	}
 
 	wg.Wait()
 
-	g, err := os.Open(fp)
-	if err != nil {
-		return err
-	}
+	// g, err := os.Open(fp)
+	// if err != nil {
+	// 	return err
+	// }
 
-	th := treehash.New()
-	written, err := io.Copy(th, g)
-	if err != nil {
-		return err
-	}
+	// th := treehash.New()
+	// written, err := io.Copy(th, g)
+	// if err != nil {
+	// 	return err
+	// }
 
-	if written == 0 {
-		return fmt.Errorf("cannot compute tree hash | missing full file buffer")
-	}
+	// if written == 0 {
+	// 	return fmt.Errorf("cannot compute tree hash | missing full file buffer")
+	// }
 
 	input := &glacier.CompleteMultipartUploadInput{
 		AccountId:   aws.String("-"),
 		ArchiveSize: aws.String(fmt.Sprintf("%d", totalSize)),
-		Checksum:    aws.String(fmt.Sprintf("%x", th.Sum(nil))),
-		UploadId:    aws.String(*initResult.UploadId),
-		VaultName:   aws.String(vault),
+		// Checksum:    aws.String(fmt.Sprintf("%x", th.Sum(nil))),
+		Checksum:  aws.String(th.Hash()),
+		UploadId:  aws.String(*initResult.UploadId),
+		VaultName: aws.String(vault),
 	}
 	result, err := svc.CompleteMultipartUpload(input)
 	if err != nil {
