@@ -91,7 +91,6 @@ func getFiles(fp string, files map[string]struct{}) {
 }
 
 func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
-	partSize := int64(1 << 20) // 1MB
 	baseName := filepath.Base(fp)
 
 	initResult, err := svc.InitiateMultipartUpload(&glacier.InitiateMultipartUploadInput{
