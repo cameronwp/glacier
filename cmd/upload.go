@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/glacier"
-	"github.com/nickvanw/treehash"
 	"github.com/spf13/cobra"
 	"gopkg.in/cheggaaa/pb.v2"
 )
@@ -91,6 +90,7 @@ func getFiles(fp string, files map[string]struct{}) {
 }
 
 func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
+	var partSize = int64(1 << 20) // 1MB
 	baseName := filepath.Base(fp)
 
 	initResult, err := svc.InitiateMultipartUpload(&glacier.InitiateMultipartUploadInput{
@@ -110,7 +110,7 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 
 	// TODO: zip the file first
 
-	var th treehash.MultiTreeHash
+	hashes := [][]byte{}
 
 	var totalSize int64
 	if stats, err := f.Stat(); err == nil {
@@ -137,8 +137,8 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 
 		endB := startB + int64(n)
 
-		hash := fmt.Sprintf("%x", sha256.Sum256(buf[:n]))
-		th.Add(hash)
+		hash := sha256.Sum256(buf[:n])
+		hashes = append(hashes, hash[:])
 
 		go func(b []byte, s int64, e int64, h string) {
 			_, err := svc.UploadMultipartPart(&glacier.UploadMultipartPartInput{
@@ -155,7 +155,7 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 			}
 			bar.Add(contentLength)
 			wg.Done()
-		}(buf, startB, endB, hash)
+		}(buf, startB, endB, fmt.Sprintf("%x", hash))
 
 		startB = endB
 	}
@@ -165,7 +165,7 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 	input := &glacier.CompleteMultipartUploadInput{
 		AccountId:   aws.String("-"),
 		ArchiveSize: aws.String(fmt.Sprintf("%d", totalSize)),
-		Checksum:    aws.String(th.Hash()),
+		Checksum:    aws.String(fmt.Sprintf("%x", glacier.ComputeTreeHash(hashes))),
 		UploadId:    aws.String(*initResult.UploadId),
 		VaultName:   aws.String(vault),
 	}

@@ -1,7 +1,5 @@
 package pool
 
-var partSize = int64(1 << 20) // 1MB
-
 type Files struct {
 	maxConnections int
 	failed         []Chunk
@@ -15,3 +13,5 @@ type Chunk struct {
 	End      int64
 	Checksum string
 }
+
+// dynamically change the partsize depending on rate of failure, size of file
