@@ -183,6 +183,35 @@ func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 	return nil
 }
 
+func openFile(fp string) (*os.File, string, int64, error) {
+	name := filepath.Base(fp)
+	f, err := os.Open(fp)
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	var totalSize int64
+	if stats, err := f.Stat(); err == nil {
+		totalSize = stats.Size()
+	} else {
+		return nil, "", 0, err
+	}
+
+	return f, name, totalSize, nil
+}
+
+var currentPartSize int64
+
+func calculateFilePartSize(totalSize int64) int64 {
+	// dynamically change the partsize depending on rate of failure, size of file, upload rate
+	// https://docs.aws.amazon.com/amazonglacier/latest/dev/uploading-archive-mpu.html
+	return totalSize
+}
+
+func calculateChunkPartSize(remaining int64) int {
+	//
+}
+
 func formatAWSError(err error) error {
 	if aerr, ok := err.(awserr.Error); ok {
 		switch aerr.Code() {
