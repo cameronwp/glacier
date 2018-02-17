@@ -37,8 +37,8 @@ func TestAddJob(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 1, len(testJobQueue.waitingJobs), "wrong # waiting jobs")
-				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "wrong chunk ID in queue")
+				assert.Equal(st, 1, len(testJobQueue.waitingJobs), "# waiting jobs")
+				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "chunk ID in queue")
 
 				return nil
 			},
@@ -59,7 +59,7 @@ func TestAddJob(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 2, numJobs, "wrong # waiting jobs")
+				assert.Equal(st, 2, numJobs, "# waiting jobs")
 
 				return nil
 			},
@@ -79,9 +79,9 @@ func TestAddJob(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 2, len(testJobQueue.waitingJobs), "wrong # waiting jobs")
-				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "wrong chunk ID in queue")
-				assert.Equal(st, c2.ID, testJobQueue.waitingJobs[1].Status.Chunk.ID, "wrong chunk ID in queue")
+				assert.Equal(st, 2, len(testJobQueue.waitingJobs), "# waiting jobs")
+				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "chunk ID in queue")
+				assert.Equal(st, c2.ID, testJobQueue.waitingJobs[1].Status.Chunk.ID, "chunk ID in queue")
 
 				return nil
 			},
@@ -108,7 +108,110 @@ func TestActivateOldestWaitingJob(t *testing.T) {
 		expectedError error
 	}{
 		{
-			description: "",
+			description: "moves a waiting job to active when under the max",
+			test: func(st *testing.T) error {
+				testJobQueue := JobQueue{
+					MaxJobs: 1,
+				}
+				j := Job{}
+				testJobQueue.waitingJobs = append(testJobQueue.waitingJobs, &j)
+
+				assert.Equal(st, 1, len(testJobQueue.waitingJobs), "# waiting jobs")
+
+				_, err := testJobQueue.ActivateOldestWaitingJob()
+				if err != nil {
+					return err
+				}
+
+				assert.Equal(st, 0, len(testJobQueue.waitingJobs), "# waiting jobs")
+				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs")
+
+				return nil
+			},
+		},
+		{
+			description: "moves the oldest waiting job to active",
+			test: func(st *testing.T) error {
+				testJobQueue := JobQueue{
+					MaxJobs: 1,
+				}
+				c1 := Chunk{ID: "asdf1234"}
+				c2 := Chunk{ID: "1234asdf"}
+				_, err := testJobQueue.AddJob(c1)
+				if err != nil {
+					return err
+				}
+				_, err = testJobQueue.AddJob(c2)
+				if err != nil {
+					return err
+				}
+
+				_, err = testJobQueue.ActivateOldestWaitingJob()
+				if err != nil {
+					return err
+				}
+
+				assert.Equal(st, c1.ID, testJobQueue.activeJobs[0].Status.Chunk.ID, "chunk IDs")
+
+				return nil
+			},
+		},
+		{
+			description: "errs when at the max # of jobs",
+			test: func(st *testing.T) error {
+				testJobQueue := JobQueue{
+					MaxJobs: 1,
+				}
+				j := Job{}
+				testJobQueue.waitingJobs = append(testJobQueue.waitingJobs, &j)
+				testJobQueue.waitingJobs = append(testJobQueue.waitingJobs, &j)
+
+				_, err := testJobQueue.ActivateOldestWaitingJob()
+				if err != nil {
+					return err
+				}
+
+				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs")
+
+				_, err = testJobQueue.ActivateOldestWaitingJob()
+				return err
+			},
+			expectedError: ErrMaxActiveJobs,
+		},
+		{
+			description: "errs when over the max # of jobs",
+			test: func(st *testing.T) error {
+				testJobQueue := JobQueue{
+					MaxJobs: 1,
+				}
+				j := Job{}
+				testJobQueue.waitingJobs = append(testJobQueue.waitingJobs, &j)
+				testJobQueue.activeJobs = append(testJobQueue.activeJobs, &j)
+				testJobQueue.activeJobs = append(testJobQueue.activeJobs, &j)
+
+				_, err := testJobQueue.ActivateOldestWaitingJob()
+				if err != nil {
+					return err
+				}
+
+				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs")
+
+				_, err = testJobQueue.ActivateOldestWaitingJob()
+				return err
+			},
+			expectedError: ErrMaxActiveJobs,
+		},
+		{
+			description: "errs if no jobs are waiting",
+			test: func(st *testing.T) error {
+				testJobQueue := JobQueue{
+					MaxJobs: 1,
+				}
+				_, err := testJobQueue.ActivateOldestWaitingJob()
+
+				return err
+			},
+			expectedError: ErrNoWaitingJobs,
 		},
 	}
 

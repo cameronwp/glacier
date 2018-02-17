@@ -60,11 +60,11 @@ var (
 
 // JobQueue is a collection of upload jobs.
 type JobQueue struct {
-	waitingJobs    []*Job
-	activeJobs     []*Job
-	completedJobs  []*Job
-	mux            sync.Mutex
-	MaxConnections int
+	waitingJobs   []*Job
+	activeJobs    []*Job
+	completedJobs []*Job
+	mux           sync.Mutex
+	MaxJobs       int
 }
 
 // FIFOQueuer is responsible for moving jobs from waiting -> active -> completed
@@ -105,7 +105,7 @@ func (q *JobQueue) ActivateOldestWaitingJob() (int, error) {
 	q.mux.Lock()
 	defer q.mux.Unlock()
 
-	if len(q.activeJobs) >= q.MaxConnections {
+	if len(q.activeJobs) >= q.MaxJobs {
 		return len(q.waitingJobs), ErrMaxActiveJobs
 	}
 
