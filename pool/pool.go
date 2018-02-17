@@ -1,92 +1,169 @@
 package pool
 
 import (
-	"log"
+	"fmt"
 	"sync"
+	"time"
 )
 
-const startingPartSize = int64(1 << 20) // 1MB
-
-// request represents the necessary info for making a call to an API.
-type request struct {
-	method string
-	path   string
-	body   []byte
-	out    interface{}
-	echan  chan error
+// Chunk is a piece of a file to upload.
+type Chunk struct {
+	ID       string
+	StartB   int64
+	EndB     int64
+	FilePath string
 }
 
-type requestQ struct {
-	queue []request
-	mux   sync.Mutex
+type uploadState int
+
+const (
+	waiting uploadState = iota
+	inProgress
+	completed
+	erred
+)
+
+// Status describes the completion status of an upload.
+type Status struct {
+	state       uploadState
+	startedAt   time.Time
+	completedAt time.Time
 }
 
-// MaxConnections is the maximum number of connections in the pool.
-var MaxConnections = 12
+type job struct {
+	chunk       Chunk
+	status      Status
+	numAttempts int
+	schan       chan Status
+	echan       chan error
+}
 
-// New creates a new connection pool. It returns a scheduler to add requests
-// to the queue.
-func New(apiURL string, JWT string) func(string, string, []byte, interface{}) chan error {
-	var rq requestQ
-	p := sync.Pool{} // TODO: use something else - this isn't reliable
+type uploader func(Chunk) error
 
-	for i := 0; i < MaxConnections; i++ {
-		b := newBackend(apiURL, JWT)
-		p.Put(b)
+// Pool is a collection of upload jobs.
+type Pool struct {
+	waitingJobs    []*job
+	activeJobs     []*job
+	completedJobs  []*job
+	mux            sync.Mutex
+	uploader       uploader
+	maxConnections int
+	// for controlling cycling during testing
+	run bool
+}
+
+// Pooler is capable of collecting file chunks and uploading them asynchronously.
+type Pooler interface {
+	Pool(Chunk) (*chan Status, *chan error)
+	Cycle()
+	Drain(*job)
+}
+
+var _ Pooler = (*Pool)(nil)
+
+// New creates an empty Pool.
+func New(u uploader, max int) Pool {
+	return Pool{
+		uploader:       u,
+		maxConnections: max,
+	}
+}
+
+// Pool creates a job. There's no guarantee about when it will run.
+func (p *Pool) Pool(c Chunk) (*chan Status, *chan error) {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
+	j := job{
+		chunk: c,
+		status: Status{
+			state: waiting,
+		},
+		schan: make(chan Status),
+		echan: make(chan error),
 	}
 
-	return func(method string, path string, body []byte, out interface{}) chan error {
-		echan := make(chan error)
-		r := request{
-			method: method,
-			path:   path,
-			body:   body,
-			out:    out,
-			echan:  echan,
-		}
-		rq.mux.Lock()
-		rq.queue = append(rq.queue, r)
-		rq.mux.Unlock()
+	p.waitingJobs = append(p.waitingJobs, &j)
 
-		go execute(&rq, &p, echan)
-		return echan
-	}
+	go p.Cycle()
+
+	return &j.schan, &j.echan
 }
 
-func execute(rq *requestQ, p *sync.Pool, echan chan error) {
-	rq.mux.Lock()
-	if len(rq.queue) == 0 {
-		rq.mux.Unlock()
+// Cycle compares the number of jobs running to the max and activates waiting
+// jobs if possible.
+func (p *Pool) Cycle() {
+	// stop immediately if the pool isn't running
+	if !p.run {
 		return
 	}
 
-	if client, ok := p.Get().(something); ok {
-		req := rq.queue[0]
-		rq.queue = rq.queue[1:]
-		rq.mux.Unlock()
+	p.mux.Lock()
+	defer p.mux.Unlock()
 
-		err := client.Call(req.method, req.path, req.body, req.out)
-		p.Put(client)
-
-		if err != nil {
-			req.echan <- err
-			return
-		}
-		req.echan <- nil
-		go execute(rq, p, echan)
-	} else {
-		rq.mux.Unlock()
+	if len(p.activeJobs) >= p.maxConnections {
+		// the max # of jobs are already running
+		return
 	}
+
+	oldestWaitingJob := p.waitingJobs[0]
+
+	// move the first waiting job to active jobs
+	p.activeJobs = append(p.activeJobs, oldestWaitingJob)
+	p.waitingJobs = append(p.waitingJobs, p.waitingJobs[1:]...)
+
+	go p.Drain(oldestWaitingJob)
+
+	// aggressively look for more jobs
+	go p.Cycle()
 }
 
-func newBackend(apiURL string, JWT string) something {
-	// log := &hoth.DefaultLogger{}
+// Drain runs a job. It will try up to 4 times to complete the upload.
+func (p *Pool) Drain(j *job) {
+	j.status.state = inProgress
+	j.status.startedAt = time.Now()
 
-	// b, err := hoth.GetBackend(apiURL, "", "", "mc", log)
-	if err != nil {
-		log.Fatalf("Unable to create backend client for %s | %s", apiURL, err)
+	// let listeners know this job is starting
+	j.schan <- j.status
+
+	j.numAttempts = j.numAttempts + 1
+	err := p.uploader(j.chunk)
+
+	// try 4 times to upload a chunk
+	if err != nil && j.numAttempts < 4 {
+		fmt.Printf("attempt #%d for %s failed, retrying | %s\n", j.numAttempts, j.chunk.ID, err)
+		p.Drain(j)
+		return
 	}
-	b.SetJWT(JWT)
 
-	return b
+	// compile status
+	j.status.completedAt = time.Now()
+
+	if err != nil {
+		j.status.state = erred
+		j.echan <- err
+	} else {
+		j.status.state = completed
+	}
+
+	// let listeners know this job finished
+	j.schan <- j.status
+
+	// move the job from active to completed
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
+	i := 0
+	for i < len(p.activeJobs) {
+		if p.activeJobs[i].chunk.ID == j.chunk.ID {
+			break
+		}
+		i++
+	}
+
+	p.completedJobs = append(p.completedJobs, p.activeJobs[i])
+	p.activeJobs = append(p.activeJobs[:i], p.activeJobs[i:]...)
+
+	// look for more waiting jobs
+	go p.Cycle()
 }
