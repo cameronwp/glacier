@@ -1,14 +1,42 @@
 package pool
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func nilUploader(Chunk) error {
-	return nil
-}
+// func fillActiveQueue() (*JobQueue, error) {
+// 	testJobQueue := JobQueue{
+// 		MaxJobs: 2,
+// 	}
+// 	c1 := Chunk{
+// 		ID: "asdf1234",
+// 	}
+// 	c2 := Chunk{
+// 		ID: "qwer7890",
+// 	}
+// 	_, err := testJobQueue.AddJob(c1)
+// 	if err != nil {
+// 		return &testJobQueue, err
+// 	}
+// 	_, err = testJobQueue.AddJob(c2)
+// 	if err != nil {
+// 		return &testJobQueue, err
+// 	}
+
+// 	_, err = testJobQueue.ActivateOldestWaitingJob()
+// 	if err != nil {
+// 		return &testJobQueue, err
+// 	}
+// 	_, err = testJobQueue.ActivateOldestWaitingJob()
+// 	if err != nil {
+// 		return &testJobQueue, err
+// 	}
+
+// 	return &testJobQueue, nil
+// }
 
 func TestAddJob(t *testing.T) {
 	testCases := []struct {
@@ -230,37 +258,6 @@ func TestActivateOldestWaitingJob(t *testing.T) {
 }
 
 func TestNext(t *testing.T) {
-	fillActiveQueue := func() (*JobQueue, error) {
-		testJobQueue := JobQueue{
-			MaxJobs: 2,
-		}
-		c1 := Chunk{
-			ID: "asdf1234",
-		}
-		c2 := Chunk{
-			ID: "qwer7890",
-		}
-		_, err := testJobQueue.AddJob(c1)
-		if err != nil {
-			return &testJobQueue, err
-		}
-		_, err = testJobQueue.AddJob(c2)
-		if err != nil {
-			return &testJobQueue, err
-		}
-
-		_, err = testJobQueue.ActivateOldestWaitingJob()
-		if err != nil {
-			return &testJobQueue, err
-		}
-		_, err = testJobQueue.ActivateOldestWaitingJob()
-		if err != nil {
-			return &testJobQueue, err
-		}
-
-		return &testJobQueue, nil
-	}
-
 	testCases := []struct {
 		description   string
 		test          func(*testing.T) error
@@ -269,7 +266,7 @@ func TestNext(t *testing.T) {
 		{
 			description: "returns the oldest waiting job from the active queue",
 			test: func(st *testing.T) error {
-				testJobQueue, err := fillActiveQueue()
+				testJobQueue, err := fillActiveQueue(2)
 				if err != nil {
 					return err
 				}
@@ -287,7 +284,7 @@ func TestNext(t *testing.T) {
 		{
 			description: "skips over in progress jobs in the active queue",
 			test: func(st *testing.T) error {
-				testJobQueue, err := fillActiveQueue()
+				testJobQueue, err := fillActiveQueue(2)
 				if err != nil {
 					return err
 				}
@@ -307,7 +304,7 @@ func TestNext(t *testing.T) {
 		{
 			description: "errs if all jobs are in progress",
 			test: func(st *testing.T) error {
-				testJobQueue, err := fillActiveQueue()
+				testJobQueue, err := fillActiveQueue(2)
 				if err != nil {
 					return err
 				}
@@ -348,108 +345,108 @@ func TestNext(t *testing.T) {
 }
 
 func TestCompleteJob(t *testing.T) {
-	//
+	testCases := []struct {
+		description   string
+		test          func(*testing.T) error
+		expectedError error
+	}{
+		{
+			description: "moves an active job to completed jobs",
+			test: func(st *testing.T) error {
+				testJobQueue, err := fillActiveQueue(2)
+				if err != nil {
+					return err
+				}
+
+				j, err := testJobQueue.Next()
+				if err != nil {
+					return err
+				}
+
+				_, err = testJobQueue.CompleteJob(j)
+
+				assert.Equal(st, 1, len(testJobQueue.completedJobs), "# completed jobs")
+
+				return err
+			},
+		},
+		{
+			description: "moves the right active job to completed jobs when multiple are in progress",
+			test: func(st *testing.T) error {
+				testJobQueue, err := fillActiveQueue(2)
+				if err != nil {
+					return err
+				}
+
+				j1, err := testJobQueue.Next()
+				if err != nil {
+					return err
+				}
+
+				j1.Status.State = inProgress
+
+				j2, err := testJobQueue.Next()
+				if err != nil {
+					return err
+				}
+
+				j2.Status.State = inProgress
+
+				_, err = testJobQueue.CompleteJob(j2)
+
+				assert.Equal(st, j2.Status.Chunk.ID, testJobQueue.completedJobs[0].Status.Chunk.ID, "completed job ID")
+
+				return err
+			},
+		},
+		{
+			description: "reports an accurate number of completed jobs",
+			test: func(st *testing.T) error {
+				testJobQueue, err := fillActiveQueue(2)
+				if err != nil {
+					return err
+				}
+
+				j, err := testJobQueue.Next()
+				if err != nil {
+					return err
+				}
+
+				numCompleted, err := testJobQueue.CompleteJob(j)
+
+				assert.Equal(st, 1, numCompleted, "# completed jobs")
+
+				return err
+			},
+		},
+		{
+			description: "barfs if the job can't be found",
+			test: func(st *testing.T) error {
+				testJobQueue := JobQueue{}
+
+				_, err := testJobQueue.CompleteJob(&Job{
+					Status: Status{
+						Chunk: &Chunk{
+							ID: "qwertyuiop",
+						},
+					},
+				})
+
+				return err
+			},
+			expectedError: fmt.Errorf("job with chunk ID 'qwertyuiop' is not active"),
+		},
+	}
+
+	t.Parallel()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(st *testing.T) {
+			err := tc.test(st)
+			if tc.expectedError != nil {
+				assert.Equal(st, err, tc.expectedError)
+			} else {
+				assert.NoError(st, err)
+			}
+		})
+	}
 }
-
-// 	t.Parallel()
-// 	for _, tc := range testCases {
-// 		t.Run(tc.description, tc.test)
-// 	}
-// }
-
-// func TestCycle(t *testing.T) {
-// 	testCases := []struct {
-// 		description string
-// 		test        func(*testing.T)
-// 	}{
-// 		{
-// 			description: "automatically cycles waiting to active if under the max",
-// 			test: func(st *testing.T) {
-// 				uploader := func(c Chunk) error {
-// 					return nil
-// 				}
-// 				testPool := New(uploader, 1)
-// 				testPool.stopDrain = true
-// 				testPool.Pool(Chunk{})
-
-// 				if len(testPool.waitingJobs) != 0 {
-// 					st.Errorf("expected 0 waiting jobs, found %d", len(testPool.waitingJobs))
-// 				}
-
-// 				if len(testPool.activeJobs) != 1 {
-// 					st.Errorf("expected 1 active jobs, found %d", len(testPool.activeJobs))
-// 				}
-// 			},
-// 		},
-// 		{
-// 			description: "leaves jobs in waiting if at the max",
-// 			test: func(st *testing.T) {
-// 				uploader := func(c Chunk) error {
-// 					return nil
-// 				}
-// 				testPool := New(uploader, 1)
-// 				testPool.stopDrain = true
-// 				testPool.Pool(Chunk{})
-// 				testPool.Pool(Chunk{})
-
-// 				if len(testPool.waitingJobs) != 1 {
-// 					st.Errorf("expected 1 waiting jobs, found %d", len(testPool.waitingJobs))
-// 				}
-
-// 				if len(testPool.activeJobs) != 1 {
-// 					st.Errorf("expected 1 active jobs, found %d", len(testPool.activeJobs))
-// 				}
-// 			},
-// 		},
-// 		{
-// 			description: "definitely doesn't add jobs if over the max",
-// 			test: func(st *testing.T) {
-// 				uploader := func(c Chunk) error {
-// 					return nil
-// 				}
-// 				testPool := New(uploader, 1)
-// 				testPool.stopDrain = true
-// 				testPool.activeJobs = []*job{&job{}, &job{}}
-// 				testPool.Pool(Chunk{})
-// 				testPool.Pool(Chunk{})
-
-// 				if len(testPool.waitingJobs) != 2 {
-// 					st.Errorf("expected 2 waiting jobs, found %d", len(testPool.waitingJobs))
-// 				}
-// 			},
-// 		},
-// 	}
-
-// 	t.Parallel()
-// 	for _, tc := range testCases {
-// 		t.Run(tc.description, tc.test)
-// 	}
-// }
-
-// func TestDrain(t *testing.T) {
-// 	testCases := []struct {
-// 		description string
-// 		test        func(*testing.T)
-// 	}{
-// 		{
-// 			description: "updates status to inProgress",
-// 			test: func(st *testing.T) {
-// 				u := func(c Chunk) error {
-// 					return nil
-// 				}
-// 				j := job{}
-// 				drain(&j, u)
-// 			},
-// 		},
-// 	}
-
-// 	t.Parallel()
-// 	for _, tc := range testCases {
-// 		t.Run(tc.description, tc.test)
-// 	}
-// }
-
-// // res := <-*schan
-// // if res.state != completed {
-// // 	t.Errorf("expect test to succeed, found %d", res.state)
-// // }

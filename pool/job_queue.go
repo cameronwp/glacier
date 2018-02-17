@@ -128,12 +128,10 @@ func (q *JobQueue) Next() (*Job, error) {
 		return nil, ErrNoActiveJobs
 	}
 
-	i := 0
-	for i < len(q.activeJobs) {
+	for i := range q.activeJobs {
 		if q.activeJobs[i].Status.State == waiting {
 			return q.activeJobs[i], nil
 		}
-		i++
 	}
 
 	return nil, ErrAllActiveJobsInProgress
@@ -164,124 +162,3 @@ func (q *JobQueue) CompleteJob(j *Job) (int, error) {
 
 	return len(q.completedJobs), nil
 }
-
-type actor func(*Chunk) error
-
-type Drain struct {
-	action actor
-	schan  chan Status
-	echan  chan error
-}
-
-// Drainer asynchronously performs actions against a job queue.
-type Drainer interface {
-	Drain(*JobQueue)
-}
-
-var _ Drainer = (*Drain)(nil)
-
-// New creates a new drain with an actor.
-func New(a actor) *Drain {
-	return &Drain{
-		action: a,
-	}
-}
-
-// Drain will run jobs asynchronously until there are no waiting jobs remaining.
-func (d *Drain) Drain(q *JobQueue) {
-	j, err := q.Next()
-	if err != nil {
-		switch err {
-		case ErrNoActiveJobs:
-		case ErrAllActiveJobsInProgress:
-			break
-		default:
-			fmt.Println(err)
-		}
-		return
-	}
-
-	// the job is already running
-	if j.Status.State == inProgress {
-		go d.Drain(q)
-		return
-	}
-
-	j.Status.State = inProgress
-	j.numAttempts = j.numAttempts + 1
-	j.Status.StartedAt = time.Now()
-
-	emitStatus(d.schan, d.echan, j)
-
-	err = d.action(j.Status.Chunk)
-	// try 4 times to perform an action
-	if err != nil && j.numAttempts < 4 {
-		j.Status.State = waiting
-		fmt.Printf("attempt #%d for %s failed, retrying | %s\n", j.numAttempts, j.Status.Chunk.ID, err)
-		go d.Drain(q)
-		return
-	}
-
-	j.Status.State = completed
-	j.Status.CompletedAt = time.Now()
-
-	emitStatus(d.schan, d.echan, j)
-
-	_, err = q.CompleteJob(j)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	_, err = q.ActivateOldestWaitingJob()
-	if err != nil {
-		// no problem if there are no active jobs
-		switch err {
-		case ErrNoWaitingJobs:
-		case ErrMaxActiveJobs:
-			break
-		default:
-			fmt.Println(err)
-		}
-		return
-	}
-
-	go d.Drain(q)
-}
-
-func emitStatus(schan chan Status, echan chan error, j *Job) {
-	//
-}
-
-// func drain(j *Job, a actor) {
-// 	j.status.state = inProgress
-// 	j.status.startedAt = time.Now()
-
-// 	// TODO: clearly using channels incorrectly here
-
-// 	// let listeners know this job is starting
-// 	j.schan <- j.status
-
-// 	j.numAttempts = j.numAttempts + 1
-// 	err := u(j.chunk)
-
-// 	// try 4 times to upload a chunk
-// 	if err != nil && j.numAttempts < 4 {
-// 		fmt.Printf("attempt #%d for %s failed, retrying | %s\n", j.numAttempts, j.chunk.ID, err)
-// 		drain(j, u)
-// 		return
-// 	}
-
-// 	// compile status
-// 	j.status.completedAt = time.Now()
-
-// 	if err != nil {
-// 		j.status.state = erred
-// 		j.echan <- err
-// 	} else {
-// 		j.status.state = completed
-// 	}
-
-// 	// let listeners know this job finished
-// 	j.schan <- j.status
-// }
