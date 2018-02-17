@@ -39,6 +39,7 @@ func TestAddJob(t *testing.T) {
 
 				assert.Equal(st, 1, len(testJobQueue.waitingJobs), "# waiting jobs")
 				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "chunk ID in queue")
+				assert.Equal(st, waiting, testJobQueue.waitingJobs[0].Status.State, "job state")
 
 				return nil
 			},
@@ -226,6 +227,128 @@ func TestActivateOldestWaitingJob(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNext(t *testing.T) {
+	fillActiveQueue := func() (*JobQueue, error) {
+		testJobQueue := JobQueue{
+			MaxJobs: 2,
+		}
+		c1 := Chunk{
+			ID: "asdf1234",
+		}
+		c2 := Chunk{
+			ID: "qwer7890",
+		}
+		_, err := testJobQueue.AddJob(c1)
+		if err != nil {
+			return &testJobQueue, err
+		}
+		_, err = testJobQueue.AddJob(c2)
+		if err != nil {
+			return &testJobQueue, err
+		}
+
+		_, err = testJobQueue.ActivateOldestWaitingJob()
+		if err != nil {
+			return &testJobQueue, err
+		}
+		_, err = testJobQueue.ActivateOldestWaitingJob()
+		if err != nil {
+			return &testJobQueue, err
+		}
+
+		return &testJobQueue, nil
+	}
+
+	testCases := []struct {
+		description   string
+		test          func(*testing.T) error
+		expectedError error
+	}{
+		{
+			description: "returns the oldest waiting job from the active queue",
+			test: func(st *testing.T) error {
+				testJobQueue, err := fillActiveQueue()
+				if err != nil {
+					return err
+				}
+
+				j, err := testJobQueue.Next()
+				if err != nil {
+					return err
+				}
+
+				assert.Equal(st, j.Status.Chunk.ID, testJobQueue.activeJobs[0].Status.Chunk.ID, "chunk IDs match")
+
+				return nil
+			},
+		},
+		{
+			description: "skips over in progress jobs in the active queue",
+			test: func(st *testing.T) error {
+				testJobQueue, err := fillActiveQueue()
+				if err != nil {
+					return err
+				}
+
+				testJobQueue.activeJobs[0].Status.State = inProgress
+
+				j, err := testJobQueue.Next()
+				if err != nil {
+					return err
+				}
+
+				assert.Equal(st, j.Status.Chunk.ID, testJobQueue.activeJobs[1].Status.Chunk.ID, "chunk IDs match")
+
+				return nil
+			},
+		},
+		{
+			description: "errs if all jobs are in progress",
+			test: func(st *testing.T) error {
+				testJobQueue, err := fillActiveQueue()
+				if err != nil {
+					return err
+				}
+
+				testJobQueue.activeJobs[0].Status.State = inProgress
+				testJobQueue.activeJobs[1].Status.State = inProgress
+
+				j, err := testJobQueue.Next()
+
+				assert.Nil(st, j)
+				return err
+			},
+			expectedError: ErrAllActiveJobsInProgress,
+		},
+		{
+			description: "errs if no jobs are active",
+			test: func(st *testing.T) error {
+				testJobQueue := JobQueue{}
+
+				_, err := testJobQueue.Next()
+				return err
+			},
+			expectedError: ErrNoActiveJobs,
+		},
+	}
+
+	t.Parallel()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(st *testing.T) {
+			err := tc.test(st)
+			if tc.expectedError != nil {
+				assert.Equal(st, err, tc.expectedError)
+			} else {
+				assert.NoError(st, err)
+			}
+		})
+	}
+}
+
+func TestCompleteJob(t *testing.T) {
+	//
 }
 
 // 	t.Parallel()

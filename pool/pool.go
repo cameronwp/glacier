@@ -133,6 +133,7 @@ func (q *JobQueue) Next() (*Job, error) {
 		if q.activeJobs[i].Status.State == waiting {
 			return q.activeJobs[i], nil
 		}
+		i++
 	}
 
 	return nil, ErrAllActiveJobsInProgress
