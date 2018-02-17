@@ -14,10 +14,10 @@ type Chunk struct {
 	FilePath string
 }
 
-type uploadState int
+type actionState int
 
 const (
-	waiting uploadState = iota
+	waiting actionState = iota
 	inProgress
 	completed
 	erred
@@ -25,155 +25,262 @@ const (
 
 // Status describes the completion status of an upload.
 type Status struct {
-	state       uploadState
-	startedAt   time.Time
-	completedAt time.Time
+	State       actionState
+	Chunk       *Chunk
+	StartedAt   time.Time
+	CompletedAt time.Time
 }
 
-type job struct {
-	chunk       Chunk
-	status      Status
+// Job is a piece of work.
+type Job struct {
+	Status      Status
 	numAttempts int
-	schan       chan Status
-	echan       chan error
 }
 
-type uploader func(Chunk) error
+var (
+	// ErrInvalidChunk occurs when attempting to create a job with a chunk without
+	// an ID.
+	ErrInvalidChunk = fmt.Errorf("missing chunk ID")
 
-// Pool is a collection of upload jobs.
-type Pool struct {
-	waitingJobs    []*job
-	activeJobs     []*job
-	completedJobs  []*job
+	// ErrMaxActiveJobs occurs when attempting to activate a job and connections
+	// are already maxed out.
+	ErrMaxActiveJobs = fmt.Errorf("active jobs are already maxed")
+
+	// ErrNoWaitingJobs occurs when trying to activate a job and no jobs are
+	// waiting to be activated.
+	ErrNoWaitingJobs = fmt.Errorf("no jobs are waiting")
+
+	// ErrNoActiveJobs occurs when trying to grab the next active job but none
+	// exist.
+	ErrNoActiveJobs = fmt.Errorf("no jobs are active")
+
+	// ErrAllActiveJobsInProgress means all active jobs are running.
+	ErrAllActiveJobsInProgress = fmt.Errorf("all active jobs are in progress")
+)
+
+// JobQueue is a collection of upload jobs.
+type JobQueue struct {
+	waitingJobs    []*Job
+	activeJobs     []*Job
+	completedJobs  []*Job
 	mux            sync.Mutex
-	uploader       uploader
-	maxConnections int
-	// for controlling executing during testing
-	stopCycle bool
-	stopDrain bool
+	MaxConnections int
 }
 
-// Pooler is capable of collecting file chunks and uploading them asynchronously.
-type Pooler interface {
-	Pool(Chunk) (*chan Status, *chan error)
-	Cycle()
-	Drain(*job)
+// FIFOQueuer is responsible for moving jobs from waiting -> active -> completed
+// queues.
+type FIFOQueuer interface {
+	AddJob(Chunk) (int, error)
+	ActivateOldestWaitingJob() (int, error)
+	Next() (*Job, error)
+	CompleteJob(*Job) (int, error)
 }
 
-var _ Pooler = (*Pool)(nil)
+var _ FIFOQueuer = (*JobQueue)(nil)
 
-// New creates an empty Pool.
-func New(u uploader, max int) Pool {
-	return Pool{
-		uploader:       u,
-		maxConnections: max,
+// AddJob creates a job from a chunk and adds a job to the waiting queue. It
+// returns the number of waiting jobs and an error.
+func (q *JobQueue) AddJob(c Chunk) (int, error) {
+	if c.ID == "" {
+		return len(q.waitingJobs), ErrInvalidChunk
 	}
-}
 
-// Pool creates a job. There's no guarantee about when it will run.
-func (p *Pool) Pool(c Chunk) (*chan Status, *chan error) {
-	j := job{
-		chunk: c,
-		status: Status{
-			state: waiting,
+	j := Job{
+		Status: Status{
+			Chunk: &c,
+			State: waiting,
 		},
-		// schan: make(chan Status),
-		// echan: make(chan error),
 	}
 
-	p.mux.Lock()
-	p.waitingJobs = append(p.waitingJobs, &j)
-	p.mux.Unlock()
+	q.mux.Lock()
+	defer q.mux.Unlock()
 
-	p.Cycle()
-
-	return &j.schan, &j.echan
+	q.waitingJobs = append(q.waitingJobs, &j)
+	return len(q.waitingJobs), nil
 }
 
-// Cycle compares the number of jobs running to the max and activates waiting
-// jobs if possible.
-func (p *Pool) Cycle() {
-	// testing only
-	if p.stopCycle {
-		return
+// ActivateOldestWaitingJob moves the oldest waiting job to the active queue. It
+// returns the number of active jobs and an error.
+func (q *JobQueue) ActivateOldestWaitingJob() (int, error) {
+	q.mux.Lock()
+	defer q.mux.Unlock()
+
+	if len(q.activeJobs) >= q.MaxConnections {
+		return len(q.waitingJobs), ErrMaxActiveJobs
 	}
 
-	p.mux.Lock()
-	defer p.mux.Unlock()
-
-	if len(p.activeJobs) >= p.maxConnections {
-		// the max # of jobs are already running
-		return
+	if len(q.waitingJobs) == 0 {
+		return 0, ErrNoWaitingJobs
 	}
 
-	oldestWaitingJob := p.waitingJobs[0]
+	oldestWaitingJob := q.waitingJobs[0]
 
 	// move the first waiting job to active jobs
-	p.activeJobs = append(p.activeJobs, oldestWaitingJob)
-	p.waitingJobs = append(p.waitingJobs[:0], p.waitingJobs[1:]...)
+	q.activeJobs = append(q.activeJobs, oldestWaitingJob)
+	q.waitingJobs = append(q.waitingJobs[:0], q.waitingJobs[1:]...)
 
-	go p.Drain(oldestWaitingJob)
-
-	// aggressively look for more jobs
-	go p.Cycle()
+	return len(q.waitingJobs), nil
 }
 
-// Drain runs a job. It will try up to 4 times to complete the upload.
-func (p *Pool) Drain(j *job) {
-	// testing only
-	if p.stopDrain {
-		return
+// Next returns a job that is active but is not in progress.
+func (q *JobQueue) Next() (*Job, error) {
+	if len(q.activeJobs) == 0 {
+		return nil, ErrNoActiveJobs
 	}
 
-	// run the job
-	drain(j, p.uploader)
+	i := 0
+	for i < len(q.activeJobs) {
+		if q.activeJobs[i].Status.State == waiting {
+			return q.activeJobs[i], nil
+		}
+	}
 
-	// move the job from active to completed
-	p.mux.Lock()
-	defer p.mux.Unlock()
+	return nil, ErrAllActiveJobsInProgress
+}
+
+// CompleteJob moves an active job to the completed queue. It returns the number
+// of completed jobs and an error.
+func (q *JobQueue) CompleteJob(j *Job) (int, error) {
+	q.mux.Lock()
+	defer q.mux.Unlock()
 
 	i := 0
-	for i < len(p.activeJobs) {
-		if p.activeJobs[i].chunk.ID == j.chunk.ID {
+	found := false
+	for i < len(q.activeJobs) {
+		if q.activeJobs[i].Status.Chunk.ID == j.Status.Chunk.ID {
+			found = true
 			break
 		}
 		i++
 	}
 
-	p.completedJobs = append(p.completedJobs, p.activeJobs[i])
-	p.activeJobs = append(p.activeJobs[:i], p.activeJobs[i:]...)
+	if !found {
+		return len(q.completedJobs), fmt.Errorf("job with chunk ID '%s' is not active", j.Status.Chunk.ID)
+	}
 
-	// look for more waiting jobs
-	go p.Cycle()
+	q.completedJobs = append(q.completedJobs, q.activeJobs[i])
+	q.activeJobs = append(q.activeJobs[:i], q.activeJobs[i:]...)
+
+	return len(q.completedJobs), nil
 }
 
-func drain(j *job, u uploader) {
-	j.status.state = inProgress
-	j.status.startedAt = time.Now()
+type actor func(*Chunk) error
 
-	// let listeners know this job is starting
-	j.schan <- j.status
+type Drain struct {
+	action actor
+	schan  chan Status
+	echan  chan error
+}
 
-	j.numAttempts = j.numAttempts + 1
-	err := u(j.chunk)
+// Drainer asynchronously performs actions against a job queue.
+type Drainer interface {
+	Drain(*JobQueue)
+}
 
-	// try 4 times to upload a chunk
-	if err != nil && j.numAttempts < 4 {
-		fmt.Printf("attempt #%d for %s failed, retrying | %s\n", j.numAttempts, j.chunk.ID, err)
-		drain(j, u)
+var _ Drainer = (*Drain)(nil)
+
+// New creates a new drain with an actor.
+func New(a actor) *Drain {
+	return &Drain{
+		action: a,
+	}
+}
+
+// Drain will run jobs asynchronously until there are no waiting jobs remaining.
+func (d *Drain) Drain(q *JobQueue) {
+	j, err := q.Next()
+	if err != nil {
+		switch err {
+		case ErrNoActiveJobs:
+		case ErrAllActiveJobsInProgress:
+			break
+		default:
+			fmt.Println(err)
+		}
 		return
 	}
 
-	// compile status
-	j.status.completedAt = time.Now()
-
-	if err != nil {
-		j.status.state = erred
-		j.echan <- err
-	} else {
-		j.status.state = completed
+	// the job is already running
+	if j.Status.State == inProgress {
+		go d.Drain(q)
+		return
 	}
 
-	// let listeners know this job finished
-	j.schan <- j.status
+	j.Status.State = inProgress
+	j.numAttempts = j.numAttempts + 1
+	j.Status.StartedAt = time.Now()
+
+	emitStatus(d.schan, d.echan, j)
+
+	err = d.action(j.Status.Chunk)
+	// try 4 times to perform an action
+	if err != nil && j.numAttempts < 4 {
+		j.Status.State = waiting
+		fmt.Printf("attempt #%d for %s failed, retrying | %s\n", j.numAttempts, j.Status.Chunk.ID, err)
+		go d.Drain(q)
+		return
+	}
+
+	j.Status.State = completed
+	j.Status.CompletedAt = time.Now()
+
+	emitStatus(d.schan, d.echan, j)
+
+	_, err = q.CompleteJob(j)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	_, err = q.ActivateOldestWaitingJob()
+	if err != nil {
+		// no problem if there are no active jobs
+		switch err {
+		case ErrNoWaitingJobs:
+		case ErrMaxActiveJobs:
+			break
+		default:
+			fmt.Println(err)
+		}
+		return
+	}
+
+	go d.Drain(q)
 }
+
+func emitStatus(schan chan Status, echan chan error, j *Job) {
+	//
+}
+
+// func drain(j *Job, a actor) {
+// 	j.status.state = inProgress
+// 	j.status.startedAt = time.Now()
+
+// 	// TODO: clearly using channels incorrectly here
+
+// 	// let listeners know this job is starting
+// 	j.schan <- j.status
+
+// 	j.numAttempts = j.numAttempts + 1
+// 	err := u(j.chunk)
+
+// 	// try 4 times to upload a chunk
+// 	if err != nil && j.numAttempts < 4 {
+// 		fmt.Printf("attempt #%d for %s failed, retrying | %s\n", j.numAttempts, j.chunk.ID, err)
+// 		drain(j, u)
+// 		return
+// 	}
+
+// 	// compile status
+// 	j.status.completedAt = time.Now()
+
+// 	if err != nil {
+// 		j.status.state = erred
+// 		j.echan <- err
+// 	} else {
+// 		j.status.state = completed
+// 	}
+
+// 	// let listeners know this job finished
+// 	j.schan <- j.status
+// }
