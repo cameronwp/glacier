@@ -42,49 +42,45 @@ func (d *Drain) Drain(q jobqueue.FIFOQueuer) {
 		case jobqueue.ErrAllActiveJobsInProgress:
 			break
 		default:
-			fmt.Println(err)
+			d.Echan <- err
 		}
 		return
 	}
 
-	// the job is already running, try to get a different job
+	// Next doesn't perform a lock, so it's possible another Drain goroutine
+	// picked up the same job. Double check that it isn't running.
 	if j.Status.State == jobqueue.InProgress {
 		go d.Drain(q)
 		return
 	}
+
+	j.Lock()
+	defer j.Unlock()
 
 	j.Status.State = jobqueue.InProgress
 	j.Status.StartedAt = time.Now()
 
 	emitStatus(d.Schan, j)
 
-	attemptJob(d.action, j)
+	complete := attemptJob(d.action, j)
+
+	if !complete {
+		go d.Drain(q)
+		return
+	}
 
 	emitStatus(d.Schan, j)
 
 	_, err = q.Complete(j)
 	if err != nil {
-		fmt.Println(err)
+		d.Echan <- err
 		return
 	}
-
-	// _, err = q.ActivateOldestWaitingJob()
-	// if err != nil {
-	// 	// no problem if there are no active jobs
-	// 	switch err {
-	// 	case jobqueue.ErrNoWaitingJobs:
-	// 	case jobqueue.ErrMaxActiveJobs:
-	// 		break
-	// 	default:
-	// 		fmt.Println(err)
-	// 	}
-	// 	return
-	// }
 
 	go d.Drain(q)
 }
 
-func attemptJob(a Actor, j *jobqueue.Job) {
+func attemptJob(a Actor, j *jobqueue.Job) bool {
 	j.IncrAttempts()
 	err := a(j.Status.Chunk)
 	if err != nil {
@@ -93,7 +89,7 @@ func attemptJob(a Actor, j *jobqueue.Job) {
 			// TODO: report restarting?
 			fmt.Printf("%s failed, retrying | %s\n", j.Status.Chunk.ID, err)
 			j.Status.State = jobqueue.Waiting
-			return
+			return false
 		}
 
 		j.Status.State = jobqueue.Erred
@@ -102,6 +98,7 @@ func attemptJob(a Actor, j *jobqueue.Job) {
 	}
 
 	j.Status.CompletedAt = time.Now()
+	return true
 }
 
 func emitStatus(schan chan jobqueue.Status, j *jobqueue.Job) {

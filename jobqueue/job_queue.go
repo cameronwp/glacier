@@ -41,6 +41,7 @@ type Status struct {
 
 // Job is a piece of work.
 type Job struct {
+	sync.RWMutex
 	Status      Status
 	numAttempts int
 }
@@ -84,11 +85,11 @@ type JobQueue struct {
 	// ActivateOldestWaitingJob().
 	Open bool
 	// MaxJobs is the max # of jobs that can be active simultaneously.
-	MaxJobs       int
+	MaxJobs int
+	sync.Mutex
 	waitingJobs   []*Job
 	activeJobs    []*Job
 	completedJobs []*Job
-	mux           sync.Mutex
 }
 
 // NewJobQueue returns a new job queue. Max represents the max # active jobs.
@@ -126,9 +127,9 @@ func (q *JobQueue) Add(c Chunk) (int, error) {
 		},
 	}
 
-	q.mux.Lock()
+	q.Lock()
 	q.waitingJobs = append(q.waitingJobs, &j)
-	q.mux.Unlock()
+	q.Unlock()
 
 	if q.Open {
 		_, err := q.ActivateOldestWaitingJob()
@@ -150,8 +151,8 @@ func (q *JobQueue) Add(c Chunk) (int, error) {
 // ActivateOldestWaitingJob moves the oldest waiting job to the active queue. It
 // returns the number of active jobs and an error.
 func (q *JobQueue) ActivateOldestWaitingJob() (int, error) {
-	q.mux.Lock()
-	defer q.mux.Unlock()
+	q.Lock()
+	defer q.Unlock()
 
 	if len(q.activeJobs) >= q.MaxJobs {
 		return len(q.waitingJobs), ErrMaxActiveJobs
@@ -188,7 +189,7 @@ func (q *JobQueue) Next() (*Job, error) {
 // Complete moves an active job to the completed queue. It returns the number of
 // completed jobs and an error.
 func (q *JobQueue) Complete(j *Job) (int, error) {
-	q.mux.Lock()
+	q.Lock()
 
 	i := 0
 	found := false
@@ -207,7 +208,7 @@ func (q *JobQueue) Complete(j *Job) (int, error) {
 	q.completedJobs = append(q.completedJobs, j)
 	q.activeJobs = append(q.activeJobs[:i], q.activeJobs[i+1:]...)
 
-	q.mux.Unlock()
+	q.Unlock()
 
 	if q.Open {
 		_, err := q.ActivateOldestWaitingJob()
