@@ -62,24 +62,24 @@ func (d *Drain) Drain(q jobqueue.FIFOQueuer) {
 
 	emitStatus(d.Schan, j)
 
-	_, err = q.CompleteJob(j)
+	_, err = q.Complete(j)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	_, err = q.ActivateOldestWaitingJob()
-	if err != nil {
-		// no problem if there are no active jobs
-		switch err {
-		case jobqueue.ErrNoWaitingJobs:
-		case jobqueue.ErrMaxActiveJobs:
-			break
-		default:
-			fmt.Println(err)
-		}
-		return
-	}
+	// _, err = q.ActivateOldestWaitingJob()
+	// if err != nil {
+	// 	// no problem if there are no active jobs
+	// 	switch err {
+	// 	case jobqueue.ErrNoWaitingJobs:
+	// 	case jobqueue.ErrMaxActiveJobs:
+	// 		break
+	// 	default:
+	// 		fmt.Println(err)
+	// 	}
+	// 	return
+	// }
 
 	go d.Drain(q)
 }

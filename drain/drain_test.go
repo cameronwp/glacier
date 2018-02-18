@@ -134,11 +134,8 @@ func TestDrain(t *testing.T) {
 						mockJQ.On("Next").
 							Return(j, nil)
 
-						mockJQ.On("CompleteJob", j).
+						mockJQ.On("Complete", j).
 							Return(1, nil)
-
-						mockJQ.On("ActivateOldestWaitingJob").
-							Return(0, jobqueue.ErrNoWaitingJobs)
 
 						d := NewDrain(nilUploader)
 						go d.Drain(&mockJQ)

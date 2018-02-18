@@ -79,27 +79,42 @@ var (
 
 // JobQueue is a collection of upload jobs.
 type JobQueue struct {
+	// Open determines whether completing or adding jobs should automatically
+	// activate new ones. If not, you will need to manually call
+	// ActivateOldestWaitingJob().
+	Open bool
+	// MaxJobs is the max # of jobs that can be active simultaneously.
+	MaxJobs       int
 	waitingJobs   []*Job
 	activeJobs    []*Job
 	completedJobs []*Job
 	mux           sync.Mutex
-	MaxJobs       int
 }
 
-// FIFOQueuer is responsible for moving jobs from waiting -> active -> completed
-// queues.
+// NewJobQueue returns a new job queue. Max represents the max # active jobs.
+// Open represents whether or not the queue should automatically try to keep the
+// active jobs filled (imagine that 'open' refers to a valve between a pipe of
+// waiting jobs into active jobs).
+func NewJobQueue(max int, open bool) *JobQueue {
+	return &JobQueue{
+		Open:    open,
+		MaxJobs: max,
+	}
+}
+
+// FIFOQueuer is responsible for tracking queued jobs and providing jobs that
+// are ready to run.
 type FIFOQueuer interface {
-	AddJob(Chunk) (int, error)
-	ActivateOldestWaitingJob() (int, error)
+	Add(Chunk) (int, error)
 	Next() (*Job, error)
-	CompleteJob(*Job) (int, error)
+	Complete(*Job) (int, error)
 }
 
 var _ FIFOQueuer = (*JobQueue)(nil)
 
-// AddJob creates a job from a chunk and adds a job to the waiting queue. It
+// Add creates a job from a chunk and adds a job to the waiting queue. It
 // returns the number of waiting jobs and an error.
-func (q *JobQueue) AddJob(c Chunk) (int, error) {
+func (q *JobQueue) Add(c Chunk) (int, error) {
 	if c.ID == "" {
 		return len(q.waitingJobs), ErrInvalidChunk
 	}
@@ -112,9 +127,23 @@ func (q *JobQueue) AddJob(c Chunk) (int, error) {
 	}
 
 	q.mux.Lock()
-	defer q.mux.Unlock()
-
 	q.waitingJobs = append(q.waitingJobs, &j)
+	q.mux.Unlock()
+
+	if q.Open {
+		_, err := q.ActivateOldestWaitingJob()
+		if err != nil {
+			// no problem if there are no active jobs
+			switch err {
+			case ErrNoWaitingJobs:
+			case ErrMaxActiveJobs:
+				break
+			default:
+				return len(q.waitingJobs), err
+			}
+		}
+	}
+
 	return len(q.waitingJobs), nil
 }
 
@@ -156,11 +185,10 @@ func (q *JobQueue) Next() (*Job, error) {
 	return nil, ErrAllActiveJobsInProgress
 }
 
-// CompleteJob moves an active job to the completed queue. It returns the number
-// of completed jobs and an error.
-func (q *JobQueue) CompleteJob(j *Job) (int, error) {
+// Complete moves an active job to the completed queue. It returns the number of
+// completed jobs and an error.
+func (q *JobQueue) Complete(j *Job) (int, error) {
 	q.mux.Lock()
-	defer q.mux.Unlock()
 
 	i := 0
 	found := false
@@ -176,8 +204,24 @@ func (q *JobQueue) CompleteJob(j *Job) (int, error) {
 		return len(q.completedJobs), fmt.Errorf("job with chunk ID '%s' is not active", j.Status.Chunk.ID)
 	}
 
-	q.completedJobs = append(q.completedJobs, q.activeJobs[i])
-	q.activeJobs = append(q.activeJobs[:i], q.activeJobs[i:]...)
+	q.completedJobs = append(q.completedJobs, j)
+	q.activeJobs = append(q.activeJobs[:i], q.activeJobs[i+1:]...)
+
+	q.mux.Unlock()
+
+	if q.Open {
+		_, err := q.ActivateOldestWaitingJob()
+		if err != nil {
+			// no problem if there are no active jobs
+			switch err {
+			case ErrNoWaitingJobs:
+			case ErrMaxActiveJobs:
+				break
+			default:
+				return len(q.waitingJobs), err
+			}
+		}
+	}
 
 	return len(q.completedJobs), nil
 }
