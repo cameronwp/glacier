@@ -1,42 +1,63 @@
-package pool
+package jobqueue
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thanhpk/randstr"
 )
 
-// func fillActiveQueue() (*JobQueue, error) {
-// 	testJobQueue := JobQueue{
-// 		MaxJobs: 2,
-// 	}
-// 	c1 := Chunk{
-// 		ID: "asdf1234",
-// 	}
-// 	c2 := Chunk{
-// 		ID: "qwer7890",
-// 	}
-// 	_, err := testJobQueue.AddJob(c1)
-// 	if err != nil {
-// 		return &testJobQueue, err
-// 	}
-// 	_, err = testJobQueue.AddJob(c2)
-// 	if err != nil {
-// 		return &testJobQueue, err
-// 	}
+// add numActive jobs to the active queue, each with a unique chunk ID
+func fillActiveQueue(numActive int) (*JobQueue, error) {
+	testJobQueue := JobQueue{
+		MaxJobs: numActive,
+	}
 
-// 	_, err = testJobQueue.ActivateOldestWaitingJob()
-// 	if err != nil {
-// 		return &testJobQueue, err
-// 	}
-// 	_, err = testJobQueue.ActivateOldestWaitingJob()
-// 	if err != nil {
-// 		return &testJobQueue, err
-// 	}
+	for i := 0; i < numActive; i++ {
+		c := Chunk{
+			ID: randstr.Hex(8),
+		}
+		_, err := testJobQueue.AddJob(c)
+		if err != nil {
+			return &testJobQueue, err
+		}
+		_, err = testJobQueue.ActivateOldestWaitingJob()
+		if err != nil {
+			return &testJobQueue, err
+		}
+	}
 
-// 	return &testJobQueue, nil
-// }
+	return &testJobQueue, nil
+}
+
+func TestIncrAttempts(t *testing.T) {
+	j := Job{}
+
+	assert.Equal(t, 0, j.numAttempts, "starting number of attempts")
+
+	j.IncrAttempts()
+
+	assert.Equal(t, 1, j.numAttempts, "ending number of attempts")
+}
+
+func TestAtMaxAttempts(t *testing.T) {
+	j := Job{}
+
+	for i := 0; i < (MaxJobAttempts - 1); i++ {
+		j.IncrAttempts()
+	}
+
+	assert.False(t, j.AtMaxAttempts(), "max attempts under limit")
+
+	j.IncrAttempts()
+
+	assert.True(t, j.AtMaxAttempts(), "max attempts at limit")
+
+	j.IncrAttempts()
+
+	assert.True(t, j.AtMaxAttempts(), "max attempts over limit")
+}
 
 func TestAddJob(t *testing.T) {
 	testCases := []struct {
@@ -67,7 +88,7 @@ func TestAddJob(t *testing.T) {
 
 				assert.Equal(st, 1, len(testJobQueue.waitingJobs), "# waiting jobs")
 				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "chunk ID in queue")
-				assert.Equal(st, waiting, testJobQueue.waitingJobs[0].Status.State, "job state")
+				assert.Equal(st, Waiting, testJobQueue.waitingJobs[0].Status.State, "job state")
 
 				return nil
 			},
@@ -289,7 +310,7 @@ func TestNext(t *testing.T) {
 					return err
 				}
 
-				testJobQueue.activeJobs[0].Status.State = inProgress
+				testJobQueue.activeJobs[0].Status.State = InProgress
 
 				j, err := testJobQueue.Next()
 				if err != nil {
@@ -309,8 +330,8 @@ func TestNext(t *testing.T) {
 					return err
 				}
 
-				testJobQueue.activeJobs[0].Status.State = inProgress
-				testJobQueue.activeJobs[1].Status.State = inProgress
+				testJobQueue.activeJobs[0].Status.State = InProgress
+				testJobQueue.activeJobs[1].Status.State = InProgress
 
 				j, err := testJobQueue.Next()
 
@@ -383,14 +404,14 @@ func TestCompleteJob(t *testing.T) {
 					return err
 				}
 
-				j1.Status.State = inProgress
+				j1.Status.State = InProgress
 
 				j2, err := testJobQueue.Next()
 				if err != nil {
 					return err
 				}
 
-				j2.Status.State = inProgress
+				j2.Status.State = InProgress
 
 				_, err = testJobQueue.CompleteJob(j2)
 

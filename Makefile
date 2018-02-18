@@ -15,7 +15,8 @@ check:
 	errcheck
 
 mocks:
-	GOPATH=$$(go env GOPATH) mockery -dir pool/ -all -output pool/poolmocks -outpkg poolmocks
+	GOPATH=$$(go env GOPATH) mockery -dir drain/ -all -output drain/drainmocks -outpkg drainmocks
+	GOPATH=$$(go env GOPATH) mockery -dir jobqueue/ -all -output jobqueue/jobqueuemocks -outpkg jobqueuemocks
 
 build: check
 	go build

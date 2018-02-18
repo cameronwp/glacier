@@ -1,10 +1,14 @@
-package pool
+package jobqueue
 
 import (
 	"fmt"
 	"sync"
 	"time"
 )
+
+// MaxJobAttempts is the max number of times to attempt a job before considering
+// it a failure.
+const MaxJobAttempts = 4
 
 // Chunk is a piece of a file to upload.
 type Chunk struct {
@@ -17,10 +21,14 @@ type Chunk struct {
 type actionState int
 
 const (
-	waiting actionState = iota
-	inProgress
-	completed
-	erred
+	// Waiting describes a chunk that has yet to start.
+	Waiting actionState = iota
+	// InProgress describes a chunk that is running.
+	InProgress
+	// Completed describes a chunk that successfully ran.
+	Completed
+	// Erred describes a chunk that did not successfully run.
+	Erred
 )
 
 // Status describes the completion status of an upload.
@@ -35,6 +43,17 @@ type Status struct {
 type Job struct {
 	Status      Status
 	numAttempts int
+}
+
+// IncrAttempts bumps the number of attempts by 1.
+func (j *Job) IncrAttempts() {
+	j.numAttempts++
+}
+
+// AtMaxAttempts returns whether or not the Job has been tried the max number of
+// times.
+func (j *Job) AtMaxAttempts() bool {
+	return j.numAttempts >= MaxJobAttempts
 }
 
 var (
@@ -88,7 +107,7 @@ func (q *JobQueue) AddJob(c Chunk) (int, error) {
 	j := Job{
 		Status: Status{
 			Chunk: &c,
-			State: waiting,
+			State: Waiting,
 		},
 	}
 
@@ -129,7 +148,7 @@ func (q *JobQueue) Next() (*Job, error) {
 	}
 
 	for i := range q.activeJobs {
-		if q.activeJobs[i].Status.State == waiting {
+		if q.activeJobs[i].Status.State == Waiting {
 			return q.activeJobs[i], nil
 		}
 	}
