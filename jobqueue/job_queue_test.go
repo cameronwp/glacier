@@ -89,7 +89,7 @@ func TestAdd(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 1, len(testJobQueue.waitingJobs), "# waiting jobs")
+				assert.Len(st, testJobQueue.waitingJobs, 1, "# waiting jobs")
 				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "chunk ID in queue")
 				assert.Equal(st, Waiting, testJobQueue.waitingJobs[0].Status.State, "job state")
 
@@ -137,7 +137,7 @@ func TestAdd(t *testing.T) {
 				}
 
 				assert.Equal(st, 0, numWaiting, "# waiting jobs")
-				assert.Equal(st, 2, len(testJobQueue.activeJobs), "# active jobs")
+				assert.Len(st, testJobQueue.activeJobs, 2, "# active jobs")
 
 				return nil
 			},
@@ -162,7 +162,7 @@ func TestAdd(t *testing.T) {
 				}
 
 				assert.Equal(st, 1, numWaiting, "# waiting jobs")
-				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs")
+				assert.Len(st, testJobQueue.activeJobs, 1, "# active jobs")
 
 				return nil
 			},
@@ -182,7 +182,7 @@ func TestAdd(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 2, len(testJobQueue.waitingJobs), "# waiting jobs")
+				assert.Len(st, testJobQueue.waitingJobs, 2, "# waiting jobs")
 				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "chunk ID in queue")
 				assert.Equal(st, c2.ID, testJobQueue.waitingJobs[1].Status.Chunk.ID, "chunk ID in queue")
 
@@ -219,15 +219,15 @@ func TestActivateOldestWaitingJob(t *testing.T) {
 				j := Job{}
 				testJobQueue.waitingJobs = append(testJobQueue.waitingJobs, &j)
 
-				assert.Equal(st, 1, len(testJobQueue.waitingJobs), "# waiting jobs")
+				assert.Len(st, testJobQueue.waitingJobs, 1, "# waiting jobs")
 
 				_, err := testJobQueue.ActivateOldestWaitingJob()
 				if err != nil {
 					return err
 				}
 
-				assert.Equal(st, 0, len(testJobQueue.waitingJobs), "# waiting jobs")
-				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs")
+				assert.Len(st, testJobQueue.waitingJobs, 0, "# waiting jobs")
+				assert.Len(st, testJobQueue.activeJobs, 1, "# active jobs")
 
 				return nil
 			},
@@ -274,7 +274,7 @@ func TestActivateOldestWaitingJob(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs")
+				assert.Len(st, testJobQueue.activeJobs, 1, "# active jobs")
 
 				_, err = testJobQueue.ActivateOldestWaitingJob()
 				return err
@@ -437,11 +437,11 @@ func TestComplete(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 2, len(testJobQueue.activeJobs), "# active jobs pre-complete")
+				assert.Len(st, testJobQueue.activeJobs, 2, "# active jobs pre-complete")
 				_, err = testJobQueue.Complete(j)
 
-				assert.Equal(st, 1, len(testJobQueue.completedJobs), "# completed jobs")
-				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs post-complete")
+				assert.Len(st, testJobQueue.completedJobs, 1, "# completed jobs")
+				assert.Len(st, testJobQueue.activeJobs, 1, "# active jobs post-complete")
 
 				return err
 			},
@@ -518,7 +518,7 @@ func TestComplete(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 2, len(testJobQueue.activeJobs), "# active jobs")
+				assert.Len(st, testJobQueue.activeJobs, 2, "# active jobs")
 				assert.Equal(st, c.ID, testJobQueue.activeJobs[1].Status.Chunk.ID, "newest chunk ID")
 
 				return err
@@ -544,7 +544,7 @@ func TestComplete(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs")
+				assert.Len(st, testJobQueue.activeJobs, 1, "# active jobs")
 
 				return err
 			},
