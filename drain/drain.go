@@ -56,11 +56,11 @@ func (d *Drain) Drain(q jobqueue.FIFOQueuer) {
 	j.Status.State = jobqueue.InProgress
 	j.Status.StartedAt = time.Now()
 
-	go emitStatus(d.Schan, j)
+	emitStatus(d.Schan, j)
 
 	attemptJob(d.action, j)
 
-	go emitStatus(d.Schan, j)
+	emitStatus(d.Schan, j)
 
 	_, err = q.CompleteJob(j)
 	if err != nil {
@@ -90,6 +90,7 @@ func attemptJob(a Actor, j *jobqueue.Job) {
 	if err != nil {
 		if !j.AtMaxAttempts() {
 			// TODO: better logging
+			// TODO: report restarting?
 			fmt.Printf("%s failed, retrying | %s\n", j.Status.Chunk.ID, err)
 			j.Status.State = jobqueue.Waiting
 			return

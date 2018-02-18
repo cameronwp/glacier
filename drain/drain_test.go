@@ -102,7 +102,7 @@ func TestDrain(t *testing.T) {
 			description: "when 1 job is active",
 			testCases: []testCase{
 				{
-					description: "reports when the job is starting",
+					description: "first reports when the job is starting",
 					test: func(st *testing.T) error {
 						var mockJQ jobqueuemocks.FIFOQueuer
 						j := randomJob()
@@ -121,6 +121,31 @@ func TestDrain(t *testing.T) {
 
 						val := <-d.Schan
 						assert.Equal(st, jobqueue.InProgress, val.State, "chunk state")
+
+						return nil
+					},
+				},
+				{
+					description: "finally reports when the job ended",
+					test: func(st *testing.T) error {
+						var mockJQ jobqueuemocks.FIFOQueuer
+						j := randomJob()
+
+						mockJQ.On("Next").
+							Return(j, nil)
+
+						mockJQ.On("CompleteJob", j).
+							Return(1, nil)
+
+						mockJQ.On("ActivateOldestWaitingJob").
+							Return(0, jobqueue.ErrNoWaitingJobs)
+
+						d := NewDrain(nilUploader)
+						go d.Drain(&mockJQ)
+
+						<-d.Schan
+						val := <-d.Schan
+						assert.Equal(st, jobqueue.Completed, val.State, "chunk state")
 
 						return nil
 					},
