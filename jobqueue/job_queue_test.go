@@ -525,6 +525,31 @@ func TestComplete(t *testing.T) {
 			},
 		},
 		{
+			description: "doesn't mind if open and no jobs are waiting",
+			test: func(st *testing.T) error {
+				testJobQueue, err := fillActiveQueue(2)
+				if err != nil {
+					return err
+				}
+
+				testJobQueue.Open = true
+
+				j, err := testJobQueue.Next()
+				if err != nil {
+					return err
+				}
+
+				_, err = testJobQueue.Complete(j)
+				if err != nil {
+					return err
+				}
+
+				assert.Equal(st, 1, len(testJobQueue.activeJobs), "# active jobs")
+
+				return err
+			},
+		},
+		{
 			description: "barfs if the job can't be found",
 			test: func(st *testing.T) error {
 				testJobQueue := JobQueue{}
