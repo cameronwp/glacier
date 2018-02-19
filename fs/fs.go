@@ -1,11 +1,26 @@
 package fs
 
 import (
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+
+	"github.com/cameronwp/glacier/jobqueue"
 )
 
 const startingPartSize = int64(1 << 20) // 1MB
+
+// Chunker can create file chunks.
+type Chunker interface {
+	GetFilesize(string) (int64, error)
+	CreateChunks(string, string, int64, int64) ([]jobqueue.Chunk, error)
+}
+
+// OSChunker implements Chunker using os.
+type OSChunker struct{}
+
+var _ Chunker = (*OSChunker)(nil)
 
 // rip up files, watch how long they take, change part sizes, # pool connections
 
@@ -54,6 +69,72 @@ func GetFilepaths(fp string) ([]string, error) {
 	}
 
 	return aggregator, err
+}
+
+// ChunkFile creates chunks from a file. You must already have an upload ID and
+// a known part size. Chunk sizes may be determined on the fly.
+func ChunkFile(fs Chunker, filepath string, uploadID string, partsize int64) ([]jobqueue.Chunk, error) {
+	totalSize, err := fs.GetFilesize(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	return fs.CreateChunks(filepath, uploadID, partsize, totalSize)
+}
+
+// GetFilesize returns the size of a file.
+func (*OSChunker) GetFilesize(filepath string) (int64, error) {
+	f, err := os.Open(filepath)
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	stats, err := f.Stat()
+	if err != nil {
+		return 0, nil
+	}
+
+	return stats.Size(), err
+}
+
+// CreateChunks does the math to determine start byte and end byte for each
+// chunk.
+func (*OSChunker) CreateChunks(filepath string, uploadID string, partsize int64, totalSize int64) ([]jobqueue.Chunk, error) {
+	var aggregator []jobqueue.Chunk
+
+	startB := int64(0)
+
+	for {
+		contentLength := int(math.Min(float64(partsize), float64(totalSize-startB)))
+		if contentLength == 0 {
+			// at the end of the file
+			break
+		}
+
+		endB := startB + int64(contentLength)
+
+		aggregator = append(aggregator, jobqueue.Chunk{
+			UploadID: uploadID,
+			Path:     filepath,
+			StartB:   startB,
+			EndB:     endB,
+		})
+
+		startB = endB
+	}
+
+	return aggregator, nil
+}
+
+func getPartsize() int64 {
+	// TODO: something clever to determine part size on the fly
+	return startingPartSize
 }
 
 // TODO:

@@ -54,3 +54,52 @@ func TestGetFilepaths(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateChunks(t *testing.T) {
+	testCases := []struct {
+		description   string
+		test          func(*testing.T) error
+		expectedError error
+	}{
+		{
+			description: "succeeds when a file is larger than the partsize",
+			test: func(st *testing.T) error {
+				chunker := &OSChunker{}
+				chunks, err := chunker.CreateChunks("asdf", "asdf", int64(10), int64(12))
+
+				assert.Len(st, chunks, 2, "2 chunks")
+
+				assert.Equal(st, int64(0), chunks[0].StartB, "first starting byte")
+				assert.Equal(st, int64(10), chunks[0].EndB, "first ending byte")
+				assert.Equal(st, int64(10), chunks[1].StartB, "second starting byte")
+				assert.Equal(st, int64(12), chunks[1].EndB, "second ending byte")
+				return err
+			},
+		},
+		{
+			description: "succeeds when a file is smaller than the partsize",
+			test: func(st *testing.T) error {
+				chunker := &OSChunker{}
+				chunks, err := chunker.CreateChunks("asdf", "asdf", int64(12), int64(10))
+
+				assert.Len(st, chunks, 1, "1 chunk")
+
+				assert.Equal(st, int64(0), chunks[0].StartB, "first starting byte")
+				assert.Equal(st, int64(10), chunks[0].EndB, "first ending byte")
+				return err
+			},
+		},
+	}
+
+	t.Parallel()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(st *testing.T) {
+			err := tc.test(st)
+			if tc.expectedError != nil {
+				assert.Equal(st, err, tc.expectedError)
+			} else {
+				assert.NoError(st, err)
+			}
+		})
+	}
+}
