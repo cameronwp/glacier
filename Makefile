@@ -20,6 +20,7 @@ mocks:
 	GOPATH=$$(go env GOPATH) mockery -dir jobqueue/ -all -output jobqueue/jobqueuemocks -outpkg jobqueuemocks
 	GOPATH=$$(go env GOPATH) mockery -dir fs/ -all -output fs/fsmocks -outpkg fsmocks
 	GOPATH=$$(go env GOPATH) mockery -dir ioiface/ -all -output ioiface/ioifacemocks -outpkg ioifacemocks
+	GOPATH=$$(go env GOPATH) mockery -dir filebuffer/ -all -output filebuffer/filebuffermocks -outpkg filebuffermocks
 
 build: check
 	go build

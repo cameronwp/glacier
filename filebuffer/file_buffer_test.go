@@ -1,9 +1,12 @@
-package fs
+package filebuffer
 
 import (
 	"crypto/sha256"
 	"fmt"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/service/glacier"
+	"github.com/cameronwp/glacier/fs/fsmocks"
 
 	"github.com/cameronwp/glacier/ioiface/ioifacemocks"
 	"github.com/stretchr/testify/assert"
@@ -399,6 +402,170 @@ func TestGetFileHashes(t *testing.T) {
 				assert.False(st, ok)
 				return nil
 			},
+		},
+	}
+
+	t.Parallel()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(st *testing.T) {
+			err := tc.test(st)
+			if tc.expectedError != nil {
+				assert.Equal(st, err, tc.expectedError)
+			} else {
+				assert.NoError(st, err)
+			}
+		})
+	}
+}
+
+func TestTreeHash(t *testing.T) {
+	testCases := []struct {
+		description   string
+		test          func(*testing.T) error
+		expectedError error
+	}{
+		{
+			description: "computes a tree hash against a file with many chunks in order",
+			test: func(st *testing.T) error {
+				osb := OSBuffer{}
+				chunker := fsmocks.Chunker{}
+				filepath := "path/to/file"
+
+				hashes := [][]byte{
+					[]byte(randstr.RandomString(8)),
+					[]byte(randstr.RandomString(8)),
+					[]byte(randstr.RandomString(8)),
+				}
+
+				preComputedTreehash := glacier.ComputeTreeHash(hashes)
+
+				osb[filepath] = []FileHash{
+					{
+						sha256: hashes[0],
+						startB: 0,
+						endB:   10,
+					},
+					{
+						sha256: hashes[1],
+						startB: 10,
+						endB:   20,
+					},
+					{
+						sha256: hashes[2],
+						startB: 20,
+						endB:   27,
+					},
+				}
+
+				chunker.On("GetFilesize", filepath).Return(int64(27), nil)
+
+				treehash, err := osb.TreeHash(&chunker, filepath)
+
+				assert.Equal(st, preComputedTreehash, treehash, "treehashes match")
+
+				return err
+			},
+		},
+		{
+			description: "computes a tree hash against a file with many chunks out of order",
+			test: func(st *testing.T) error {
+				osb := OSBuffer{}
+				chunker := fsmocks.Chunker{}
+				filepath := "path/to/file"
+
+				hashes := [][]byte{
+					[]byte(randstr.RandomString(8)),
+					[]byte(randstr.RandomString(8)),
+					[]byte(randstr.RandomString(8)),
+				}
+
+				preComputedTreehash := glacier.ComputeTreeHash(hashes)
+
+				osb[filepath] = []FileHash{
+					{
+						sha256: hashes[1],
+						startB: 10,
+						endB:   20,
+					},
+					{
+						sha256: hashes[0],
+						startB: 0,
+						endB:   10,
+					},
+					{
+						sha256: hashes[2],
+						startB: 20,
+						endB:   27,
+					},
+				}
+
+				chunker.On("GetFilesize", filepath).Return(int64(27), nil)
+
+				treehash, err := osb.TreeHash(&chunker, filepath)
+
+				assert.Equal(st, preComputedTreehash, treehash, "treehashes match")
+
+				return err
+			},
+		},
+		{
+			description: "computes a tree hash against a file with one chunk",
+			test: func(st *testing.T) error {
+				osb := OSBuffer{}
+				chunker := fsmocks.Chunker{}
+				filepath := "path/to/file"
+
+				hashes := [][]byte{
+					[]byte(randstr.RandomString(8)),
+				}
+
+				preComputedTreehash := glacier.ComputeTreeHash(hashes)
+
+				osb[filepath] = []FileHash{
+					{
+						sha256: hashes[0],
+						startB: 0,
+						endB:   10,
+					},
+				}
+
+				chunker.On("GetFilesize", filepath).Return(int64(10), nil)
+
+				treehash, err := osb.TreeHash(&chunker, filepath)
+
+				assert.Equal(st, preComputedTreehash, treehash, "treehashes match")
+
+				return err
+			},
+		},
+		{
+			description: "errs if not all parts have been hashed",
+			test: func(st *testing.T) error {
+				osb := OSBuffer{}
+				chunker := fsmocks.Chunker{}
+				filepath := "path/to/file"
+
+				hashes := [][]byte{
+					[]byte(randstr.RandomString(8)),
+				}
+
+				osb[filepath] = []FileHash{
+					{
+						sha256: hashes[0],
+						startB: 0,
+						endB:   10,
+					},
+				}
+
+				chunker.On("GetFilesize", filepath).Return(int64(27), nil)
+
+				treehash, err := osb.TreeHash(&chunker, filepath)
+
+				assert.Nil(st, treehash, "no treehash")
+
+				return err
+			},
+			expectedError: ErrMissingFileChunks,
 		},
 	}
 

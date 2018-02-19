@@ -1,4 +1,4 @@
-package fs
+package filebuffer
 
 import (
 	"crypto/sha256"
@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/aws/aws-sdk-go/service/glacier"
+	"github.com/cameronwp/glacier/fs"
 )
 
 var (
@@ -35,7 +36,7 @@ type FileHash struct {
 // BufferFetcherHasher can buffer and hash parts of 1+ files.
 type BufferFetcherHasher interface {
 	FetchAndHash(io.ReaderAt, string, int64, int64) (FileChunk, error)
-	TreeHash(Chunker, string) ([]byte, error)
+	TreeHash(fs.Chunker, string) ([]byte, error)
 }
 
 // OSBuffer can grab buffers from the local filesystem.
@@ -79,8 +80,8 @@ func (osb OSBuffer) FetchAndHash(f io.ReaderAt, filepath string, startB int64, e
 }
 
 // TreeHash returns the full hash for a file. Returns ErrMissingFileChunks if
-// the whole file has not been buffered.
-func (osb OSBuffer) TreeHash(chunker Chunker, filepath string) ([]byte, error) {
+// the whole file has not been buffered and hashed.
+func (osb OSBuffer) TreeHash(chunker fs.Chunker, filepath string) ([]byte, error) {
 	filesize, err := chunker.GetFilesize(filepath)
 	if err != nil {
 		return nil, err
