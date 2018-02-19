@@ -16,7 +16,6 @@ type Chunk struct {
 	Path     string
 	StartB   int64
 	EndB     int64
-	FilePath string
 }
 
 type actionState int
