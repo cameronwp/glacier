@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -87,6 +88,52 @@ func TestCreateChunks(t *testing.T) {
 				assert.Equal(st, int64(0), chunks[0].StartB, "first starting byte")
 				assert.Equal(st, int64(10), chunks[0].EndB, "first ending byte")
 				return err
+			},
+		},
+	}
+
+	t.Parallel()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(st *testing.T) {
+			err := tc.test(st)
+			if tc.expectedError != nil {
+				assert.Equal(st, err, tc.expectedError)
+			} else {
+				assert.NoError(st, err)
+			}
+		})
+	}
+}
+
+func TestGetFilesize(t *testing.T) {
+	testCases := []struct {
+		description   string
+		test          func(*testing.T) error
+		expectedError error
+	}{
+		{
+			description: "succeeds when a file exists",
+			test: func(st *testing.T) error {
+				chunker := &OSChunker{}
+				size, err := chunker.GetFilesize("./testdata/f0")
+
+				assert.Equal(st, int64(32), size, "known filesize reported")
+
+				return err
+			},
+		},
+		{
+			description: "errs when a file does not exist",
+			test: func(st *testing.T) error {
+				chunker := &OSChunker{}
+				size, err := chunker.GetFilesize("./notarealfile")
+
+				assert.Equal(st, int64(0), size, "0 size")
+
+				pathError := &os.PathError{}
+				assert.IsType(st, pathError, err, "PathError is returned")
+
+				return nil
 			},
 		},
 	}
