@@ -1,11 +1,114 @@
 package fs
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"testing"
 
+	"github.com/cameronwp/glacier/ioiface/ioifacemocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/thanhpk/randstr"
 )
+
+func TestFetchBuffer(t *testing.T) {
+	testCases := []struct {
+		description   string
+		test          func(*testing.T) error
+		expectedError error
+	}{
+		{
+			description: "succeeds when reader covers the range of bytes",
+			test: func(st *testing.T) error {
+				filepath := "path/to/file"
+				startB := int64(0)
+				endB := int64(10)
+				intLen := int(endB - startB)
+				randomBuffer := randstr.RandomBytes(intLen)
+				randomBufferHash := sha256.Sum256(randomBuffer)
+
+				osb := OSBuffer{}
+				var readerMock ioifacemocks.ReadAt
+
+				readerMock.On("ReadAt",
+					mock.Anything,
+					startB,
+				).Run(func(args mock.Arguments) {
+					buf := args.Get(0).([]byte)
+					copy(buf, randomBuffer)
+				}).Return(intLen, nil)
+
+				assert.Empty(st, osb, "no hashes to start")
+
+				fc, err := osb.FetchAndHash(&readerMock, filepath, startB, endB)
+
+				assert.Len(st, osb, 1, "has hashes for 1 file")
+				assert.Equal(st, randomBuffer, fc.buf, "buffer is right")
+				assert.Equal(st, startB, osb[filepath][0].startB, "right start bytes")
+				assert.Equal(st, endB, osb[filepath][0].endB, "right end bytes")
+				assert.Equal(st, randomBufferHash[:], fc.sha256, "hash is right in FileChunk")
+				assert.Equal(st, randomBufferHash[:], osb[filepath][0].sha256, "hash is right in FileHash")
+				return err
+			},
+		},
+		{
+			description: "errs with errors reading",
+			test: func(st *testing.T) error {
+				filepath := "path/to/file"
+				startB := int64(0)
+				endB := int64(10)
+				intLen := int(endB - startB)
+
+				osb := OSBuffer{}
+				var readerMock ioifacemocks.ReadAt
+
+				readerMock.On("ReadAt",
+					mock.Anything,
+					startB,
+				).Return(intLen, fmt.Errorf("error"))
+
+				_, err := osb.FetchAndHash(&readerMock, filepath, startB, endB)
+
+				return err
+			},
+			expectedError: fmt.Errorf("error"),
+		},
+		{
+			description: "errs if the wrong number of bytes were read",
+			test: func(st *testing.T) error {
+				filepath := "path/to/file"
+				startB := int64(0)
+				endB := int64(10)
+				intLen := int(endB - startB)
+
+				osb := OSBuffer{}
+				var readerMock ioifacemocks.ReadAt
+
+				readerMock.On("ReadAt",
+					mock.Anything,
+					startB,
+				).Return(intLen-1, nil)
+
+				_, err := osb.FetchAndHash(&readerMock, filepath, startB, endB)
+
+				return err
+			},
+			expectedError: ErrIncompleteBuffer,
+		},
+	}
+
+	t.Parallel()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(st *testing.T) {
+			err := tc.test(st)
+			if tc.expectedError != nil {
+				assert.Equal(st, err, tc.expectedError)
+			} else {
+				assert.NoError(st, err)
+			}
+		})
+	}
+}
 
 func TestSortHashes(t *testing.T) {
 	testCases := []struct {
