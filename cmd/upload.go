@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/glacier"
+	"github.com/cameronwp/glacier/fs"
 	"github.com/spf13/cobra"
 	"gopkg.in/cheggaaa/pb.v2"
 )
@@ -24,13 +25,16 @@ var uploadCmd = &cobra.Command{
 	Use:   "upload",
 	Short: "Upload a file or directory to Glacier",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		files := make(map[string]struct{})
-		getFiles(target, files)
+		files, err := fs.GetFilepaths(target)
+		if err != nil {
+			return err
+		}
+
 		if len(files) == 0 {
 			return fmt.Errorf("invalid target: no file(s) found")
 		}
 
-		for fp := range files {
+		for _, fp := range files {
 			err := uploadFileMultipart(svc, fp)
 			if err != nil {
 				return err
@@ -55,44 +59,11 @@ func init() {
 	}
 }
 
-// Just the filepaths of the files to get uploaded
-func getFiles(fp string, files map[string]struct{}) {
-	maybeFileOrDirectory, err := os.Stat(fp)
-	if err != nil {
-		// no more files
-		return
-	}
-
-	// recurse over the directory until files are found
-	if maybeFileOrDirectory.IsDir() {
-		err := filepath.Walk(fp, func(path string, f os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			// don't run against the root of the dir again
-			if fp == path {
-				return nil
-			}
-
-			getFiles(path, files)
-			return nil
-		})
-
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		return
-	}
-
-	files[fp] = struct{}{}
-}
-
 func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
 	var partSize = int64(1 << 20) // 1MB
 	baseName := filepath.Base(fp)
 
+	// TODO: move this to awsiface
 	initResult, err := svc.InitiateMultipartUpload(&glacier.InitiateMultipartUploadInput{
 		AccountId:          aws.String("-"),
 		ArchiveDescription: aws.String(baseName),
