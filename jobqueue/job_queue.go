@@ -10,6 +10,10 @@ import (
 // it a failure.
 const MaxJobAttempts = 4
 
+// DefaultActiveQueueLength is the default for the number of simultaneous active
+// jobs.
+const DefaultActiveQueueLength = 12
+
 // Chunk is a piece of a file to upload.
 type Chunk struct {
 	UploadID string
@@ -103,12 +107,19 @@ type JobQueue struct {
 // NewJobQueue returns a new job queue. Max represents the max # active jobs.
 // Open represents whether or not the queue should automatically try to keep the
 // active jobs filled (imagine that 'open' refers to a valve between a pipe of
-// waiting jobs into active jobs).
+// waiting jobs into active jobs). If max is 0, the active queue length is set
+// to the default.
 func NewJobQueue(max int, open bool) *JobQueue {
-	return &JobQueue{
+	q := &JobQueue{
 		Open:    open,
-		MaxJobs: max,
+		MaxJobs: DefaultActiveQueueLength,
 	}
+
+	if max != 0 {
+		q.MaxJobs = DefaultActiveQueueLength
+	}
+
+	return q
 }
 
 // FIFOQueuer is responsible for tracking queued jobs and providing jobs that
