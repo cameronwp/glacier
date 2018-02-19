@@ -22,8 +22,7 @@ var (
 var RootCmd = &cobra.Command{
 	Use:   "glacier",
 	Short: "Upload files to AWS Glacier",
-	Long: `If you want to use a non-default AWS profile from your credentials file, specify
-the profile you want to use with the --profile flag.`,
+	Long:  `If you want to use a non-default AWS profile from your credentials file, specify the profile you want to use with the --profile flag.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		profile, err := cmd.Flags().GetString("profile")
 		if err != nil {
