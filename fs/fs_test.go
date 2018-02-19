@@ -25,16 +25,19 @@ func TestGetFilepaths(t *testing.T) {
 		{
 			description: "succeeds if passed a path to a dir",
 			test: func(st *testing.T) error {
-				paths, err := GetFilepaths("./testdata/")
+				paths, err := GetFilepaths("./testdata")
 
 				assert.Len(st, paths, 4, "4 files")
 				return err
 			},
 		},
 		{
-			description: "returns an empty slice if passed a non-existant path",
+			description: "returns an empty slice if passed a non-existent path",
 			test: func(st *testing.T) error {
-				return nil
+				paths, err := GetFilepaths("./notarealpath/")
+
+				assert.Len(st, paths, 0, "0 files")
+				return err
 			},
 		},
 	}

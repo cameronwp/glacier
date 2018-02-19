@@ -25,30 +25,32 @@ func GetFilepaths(fp string) ([]string, error) {
 		}
 	}
 
-	// recurse over the directory until files are found
-	if maybeFileOrDirectory.IsDir() {
-		err := filepath.Walk(fp, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			// don't run against the root of the dir again
-			if fp == path {
-				return nil
-			}
-
-			if !info.IsDir() {
-				aggregator = append(aggregator, path)
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			return nil, err
-		}
-	} else {
+	// just return the file if it isn't a directory
+	if !maybeFileOrDirectory.IsDir() {
 		aggregator = append(aggregator, fp)
+		return aggregator, nil
+	}
+
+	// recurse over the directory until files are found
+	err = filepath.Walk(fp, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// don't run against the root of the dir again
+		if fp == path {
+			return nil
+		}
+
+		if !info.IsDir() {
+			aggregator = append(aggregator, path)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return aggregator, err
