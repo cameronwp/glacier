@@ -55,3 +55,16 @@ func GetFilepaths(fp string) ([]string, error) {
 
 	return aggregator, err
 }
+
+// TODO:
+// * upload files
+// * calculate rate of upload
+// * display file status
+// https://github.com/gizak/termui
+
+// TODO:
+// * arrange list of files from smallest to biggest
+// * upload the first few
+// * test rate of upload
+// * change part size, # connections
+// * compare rate of upload
