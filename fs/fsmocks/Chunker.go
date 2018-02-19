@@ -9,13 +9,13 @@ type Chunker struct {
 	mock.Mock
 }
 
-// CreateChunks provides a mock function with given fields: filepath, uploadID, totalSize
-func (_m *Chunker) CreateChunks(filepath string, uploadID string, totalSize int64) ([]jobqueue.Chunk, error) {
-	ret := _m.Called(filepath, uploadID, totalSize)
+// CreateChunks provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *Chunker) CreateChunks(_a0 string, _a1 string, _a2 int64, _a3 int64) ([]jobqueue.Chunk, error) {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	var r0 []jobqueue.Chunk
-	if rf, ok := ret.Get(0).(func(string, string, int64) []jobqueue.Chunk); ok {
-		r0 = rf(filepath, uploadID, totalSize)
+	if rf, ok := ret.Get(0).(func(string, string, int64, int64) []jobqueue.Chunk); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]jobqueue.Chunk)
@@ -23,8 +23,8 @@ func (_m *Chunker) CreateChunks(filepath string, uploadID string, totalSize int6
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, int64) error); ok {
-		r1 = rf(filepath, uploadID, totalSize)
+	if rf, ok := ret.Get(1).(func(string, string, int64, int64) error); ok {
+		r1 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r1 = ret.Error(1)
 	}
