@@ -9,7 +9,7 @@ import (
 	"github.com/cameronwp/glacier/jobqueue"
 )
 
-const startingPartSize = int64(1 << 20) // 1MB
+const startingPartSize = int64(1 << 23) // 8MB
 
 // Chunker can create file chunks.
 type Chunker interface {
