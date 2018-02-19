@@ -18,9 +18,11 @@ func InitiateMultiPartUpload(svc glacieriface.GlacierAPI, fileName string, partS
 		PartSize:           aws.String(fmt.Sprintf("%d", partSize)),
 		VaultName:          aws.String(vault),
 	})
+	fmt.Println(initResult)
 	if err != nil {
 		return formatAWSError(err)
 	}
+	return nil
 }
 
 func formatAWSError(err error) error {

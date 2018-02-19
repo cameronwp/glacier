@@ -171,18 +171,6 @@ func openFile(fp string) (*os.File, string, int64, error) {
 	return f, name, totalSize, nil
 }
 
-var currentPartSize int64
-
-func calculateFilePartSize(totalSize int64) int64 {
-	// dynamically change the partsize depending on rate of failure, size of file, upload rate
-	// https://docs.aws.amazon.com/amazonglacier/latest/dev/uploading-archive-mpu.html
-	return totalSize
-}
-
-func calculateChunkPartSize(remaining int64) int {
-	//
-}
-
 func formatAWSError(err error) error {
 	if aerr, ok := err.(awserr.Error); ok {
 		switch aerr.Code() {
