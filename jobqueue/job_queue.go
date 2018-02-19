@@ -57,13 +57,18 @@ func (j *Job) AtMaxAttempts() bool {
 	return j.numAttempts >= MaxJobAttempts
 }
 
-// TODO: compare path, bytes to determine equivalency
-// TODO: ensure a chunk is not nil
+// Is returns whether another job is the same as this one.
+func (j *Job) Is(otherJ *Job) bool {
+	return j.Status.Chunk.Path == otherJ.Status.Chunk.Path &&
+		j.Status.Chunk.UploadID == otherJ.Status.Chunk.UploadID &&
+		j.Status.Chunk.StartB == otherJ.Status.Chunk.StartB &&
+		j.Status.Chunk.EndB == otherJ.Status.Chunk.EndB
+}
 
 var (
 	// ErrInvalidChunk occurs when attempting to create a job with a chunk without
 	// an ID.
-	ErrInvalidChunk = fmt.Errorf("missing required chunk info")
+	ErrInvalidChunk = fmt.Errorf("chunk is empty")
 
 	// ErrMaxActiveJobs occurs when attempting to activate a job and connections
 	// are already maxed out.
@@ -119,7 +124,7 @@ var _ FIFOQueuer = (*JobQueue)(nil)
 // Add creates a job from a chunk and adds a job to the waiting queue. It
 // returns the number of waiting jobs and an error.
 func (q *JobQueue) Add(c Chunk) (int, error) {
-	if c.UploadID == "" {
+	if (Chunk{}) == c {
 		return len(q.waitingJobs), ErrInvalidChunk
 	}
 
@@ -197,7 +202,7 @@ func (q *JobQueue) Complete(j *Job) (int, error) {
 	i := 0
 	found := false
 	for i < len(q.activeJobs) {
-		if q.activeJobs[i].Status.Chunk.Path == j.Status.Chunk.Path {
+		if j.Is(q.activeJobs[i]) {
 			found = true
 			break
 		}

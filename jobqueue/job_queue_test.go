@@ -63,6 +63,38 @@ func TestAtMaxAttempts(t *testing.T) {
 	assert.True(t, j.AtMaxAttempts(), "max attempts over limit")
 }
 
+func TestIs(t *testing.T) {
+	j := Job{
+		Status: Status{
+			Chunk: &Chunk{
+				Path:     "path/to/file",
+				UploadID: "asdf1234",
+			},
+		},
+	}
+
+	sameJob := Job{
+		Status: Status{
+			Chunk: &Chunk{
+				Path:     "path/to/file",
+				UploadID: "asdf1234",
+			},
+		},
+	}
+
+	otherJob := Job{
+		Status: Status{
+			Chunk: &Chunk{
+				Path:     "not/the/same/path/to/file",
+				UploadID: "qwer5678",
+			},
+		},
+	}
+
+	assert.True(t, j.Is(&sameJob), "same jobs are same")
+	assert.False(t, j.Is(&otherJob), "other jobs are not same")
+}
+
 func TestAdd(t *testing.T) {
 	testCases := []struct {
 		description   string
