@@ -77,7 +77,23 @@ func TestCreateChunks(t *testing.T) {
 				return err
 			},
 		},
-		// TODO: a file that's a lot larger
+		{
+			description: "succeeds when a file is much larger than the partsize",
+			test: func(st *testing.T) error {
+				chunker := &OSChunker{}
+				chunks, err := chunker.CreateChunks("asdf", "asdf", int64(10), int64(117))
+
+				assert.Len(st, chunks, 12, "12 chunks")
+
+				assert.Equal(st, int64(0), chunks[0].StartB, "first starting byte")
+				assert.Equal(st, int64(10), chunks[0].EndB, "first ending byte")
+				assert.Equal(st, int64(10), chunks[1].StartB, "second starting byte")
+				assert.Equal(st, int64(20), chunks[1].EndB, "second ending byte")
+				assert.Equal(st, int64(110), chunks[11].StartB, "last starting byte")
+				assert.Equal(st, int64(117), chunks[11].EndB, "last ending byte")
+				return err
+			},
+		},
 		{
 			description: "succeeds when a file is smaller than the partsize",
 			test: func(st *testing.T) error {
@@ -88,6 +104,16 @@ func TestCreateChunks(t *testing.T) {
 
 				assert.Equal(st, int64(0), chunks[0].StartB, "first starting byte")
 				assert.Equal(st, int64(10), chunks[0].EndB, "first ending byte")
+				return err
+			},
+		},
+		{
+			description: "returns an empty slice if it receives a filesize of 0 bytes",
+			test: func(st *testing.T) error {
+				chunker := &OSChunker{}
+				chunks, err := chunker.CreateChunks("asdf", "asdf", int64(12), int64(0))
+
+				assert.Len(st, chunks, 0, "0 chunk")
 				return err
 			},
 		},
