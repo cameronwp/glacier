@@ -16,23 +16,23 @@ func TestSortHashes(t *testing.T) {
 		{
 			description: "when there are two out of order hashes",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 				}
 
-				sortHashes(hashes)
+				sortHashes(fileHashes)
 
-				assert.Equal(st, hashes[0].startB, int64(0), "first hash is first")
-				assert.Equal(st, hashes[1].startB, int64(10), "second hash is second")
+				assert.Equal(st, fileHashes[0].startB, int64(0), "first hash is first")
+				assert.Equal(st, fileHashes[1].startB, int64(10), "second hash is second")
 
 				return nil
 			},
@@ -40,33 +40,33 @@ func TestSortHashes(t *testing.T) {
 		{
 			description: "when there are a bunch of out of order hashes",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   30,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 30,
 						endB:   40,
 					},
 				}
 
-				sortHashes(hashes)
+				sortHashes(fileHashes)
 
-				assert.Equal(st, hashes[0].startB, int64(0), "first hash is first")
-				assert.Equal(st, hashes[3].startB, int64(30), "fourth hash is fourth")
+				assert.Equal(st, fileHashes[0].startB, int64(0), "first hash is first")
+				assert.Equal(st, fileHashes[3].startB, int64(30), "fourth hash is fourth")
 
 				return nil
 			},
@@ -86,7 +86,7 @@ func TestSortHashes(t *testing.T) {
 	}
 }
 
-func TestIsCompleteFile(t *testing.T) {
+func TestGetFileHashes(t *testing.T) {
 	testCases := []struct {
 		description   string
 		test          func(*testing.T) error
@@ -95,189 +95,205 @@ func TestIsCompleteFile(t *testing.T) {
 		{
 			description: "if there are no hashes",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{}
+				fileHashes := []FileHash{}
 
-				assert.False(st, isCompleteFile(int64(10), hashes))
+				_, ok := getFileHashes(int64(10), fileHashes)
+				assert.False(st, ok)
 				return nil
 			},
 		},
 		{
 			description: "when a file has one complete hash",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 				}
 
-				assert.True(st, isCompleteFile(int64(10), hashes))
+				hashes, ok := getFileHashes(int64(10), fileHashes)
+				assert.True(st, ok)
+				assert.Len(st, hashes, 1, "one hash")
+				assert.Equal(st, hashes[0], fileHashes[0].sha256, "hashes are the same")
 				return nil
 			},
 		},
 		{
 			description: "when a file has one incomplete hash",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 				}
 
-				assert.False(st, isCompleteFile(int64(11), hashes))
+				_, ok := getFileHashes(int64(11), fileHashes)
+				assert.False(st, ok)
 				return nil
 			},
 		},
 		{
 			description: "when a file has two complete hashes in order",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 				}
 
-				assert.True(st, isCompleteFile(int64(20), hashes))
+				hashes, ok := getFileHashes(int64(20), fileHashes)
+				assert.Len(st, hashes, 2, "2 hashes")
+				assert.Equal(st, hashes[0], fileHashes[0].sha256, "first hash is the same")
+				assert.Equal(st, hashes[1], fileHashes[1].sha256, "second hash is the same")
+				assert.True(st, ok)
 				return nil
 			},
 		},
 		{
 			description: "when a file has two complete hashes out of order",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 				}
 
-				assert.False(st, isCompleteFile(int64(20), hashes))
+				_, ok := getFileHashes(int64(20), fileHashes)
+				assert.False(st, ok)
 				return nil
 			},
 		},
 		{
 			description: "when a file has three complete hashes in order",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   27,
 					},
 				}
 
-				assert.True(st, isCompleteFile(int64(27), hashes))
+				hashes, ok := getFileHashes(int64(27), fileHashes)
+				assert.Len(st, hashes, 3, "3 hashes")
+				assert.True(st, ok)
 				return nil
 			},
 		},
 		{
 			description: "when a file is missing the last hash",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 				}
 
-				assert.False(st, isCompleteFile(int64(27), hashes))
+				_, ok := getFileHashes(int64(27), fileHashes)
+				assert.False(st, ok)
 				return nil
 			},
 		},
 		{
 			description: "when a file is missing the first hash",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   27,
 					},
 				}
 
-				assert.False(st, isCompleteFile(int64(27), hashes))
+				_, ok := getFileHashes(int64(27), fileHashes)
+				assert.False(st, ok)
 				return nil
 			},
 		},
 		{
 			description: "when a file has three complete hashes out of order",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   27,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 				}
 
-				assert.False(st, isCompleteFile(int64(27), hashes))
+				_, ok := getFileHashes(int64(27), fileHashes)
+				assert.False(st, ok)
 				return nil
 			},
 		},
 		{
 			description: "when a file is missing a hash in the middle",
 			test: func(st *testing.T) error {
-				hashes := []FileHash{
+				fileHashes := []FileHash{
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: randstr.RandomString(8),
+						sha256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   27,
 					},
 				}
 
-				assert.False(st, isCompleteFile(int64(27), hashes))
+				_, ok := getFileHashes(int64(27), fileHashes)
+				assert.False(st, ok)
 				return nil
 			},
 		},
