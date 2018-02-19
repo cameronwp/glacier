@@ -12,7 +12,8 @@ const MaxJobAttempts = 4
 
 // Chunk is a piece of a file to upload.
 type Chunk struct {
-	ID       string
+	UploadID string
+	Path     string
 	StartB   int64
 	EndB     int64
 	FilePath string
@@ -60,7 +61,7 @@ func (j *Job) AtMaxAttempts() bool {
 var (
 	// ErrInvalidChunk occurs when attempting to create a job with a chunk without
 	// an ID.
-	ErrInvalidChunk = fmt.Errorf("missing chunk ID")
+	ErrInvalidChunk = fmt.Errorf("missing required chunk info")
 
 	// ErrMaxActiveJobs occurs when attempting to activate a job and connections
 	// are already maxed out.
@@ -116,7 +117,7 @@ var _ FIFOQueuer = (*JobQueue)(nil)
 // Add creates a job from a chunk and adds a job to the waiting queue. It
 // returns the number of waiting jobs and an error.
 func (q *JobQueue) Add(c Chunk) (int, error) {
-	if c.ID == "" {
+	if c.UploadID == "" {
 		return len(q.waitingJobs), ErrInvalidChunk
 	}
 
@@ -194,7 +195,7 @@ func (q *JobQueue) Complete(j *Job) (int, error) {
 	i := 0
 	found := false
 	for i < len(q.activeJobs) {
-		if q.activeJobs[i].Status.Chunk.ID == j.Status.Chunk.ID {
+		if q.activeJobs[i].Status.Chunk.Path == j.Status.Chunk.Path {
 			found = true
 			break
 		}
@@ -202,7 +203,7 @@ func (q *JobQueue) Complete(j *Job) (int, error) {
 	}
 
 	if !found {
-		return len(q.completedJobs), fmt.Errorf("job with chunk ID '%s' is not active", j.Status.Chunk.ID)
+		return len(q.completedJobs), fmt.Errorf("job with chunk Path '%s' is not active", j.Status.Chunk.Path)
 	}
 
 	q.completedJobs = append(q.completedJobs, j)

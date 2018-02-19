@@ -10,11 +10,12 @@ import (
 
 func randomChunk() *Chunk {
 	return &Chunk{
-		ID: randstr.Hex(8),
+		Path:     randstr.Hex(8),
+		UploadID: randstr.RandomString(10),
 	}
 }
 
-// add numActive jobs to the active queue, each with a unique chunk ID
+// add numActive jobs to the active queue, each with a unique chunk Path
 func fillActiveQueue(numActive int) (*JobQueue, error) {
 	testJobQueue := JobQueue{
 		MaxJobs: numActive,
@@ -69,7 +70,7 @@ func TestAdd(t *testing.T) {
 		expectedError error
 	}{
 		{
-			description: "barfs when a chunk doesn't have an ID",
+			description: "barfs when a chunk doesn't have an Path",
 			test: func(st *testing.T) error {
 				testJobQueue := JobQueue{}
 				c1 := Chunk{}
@@ -83,14 +84,14 @@ func TestAdd(t *testing.T) {
 			description: "creates a waiting job from a chunk",
 			test: func(st *testing.T) error {
 				testJobQueue := JobQueue{}
-				c1 := Chunk{ID: "asdf1234"}
+				c1 := Chunk{UploadID: "asdf1234"}
 				_, err := testJobQueue.Add(c1)
 				if err != nil {
 					return err
 				}
 
 				assert.Len(st, testJobQueue.waitingJobs, 1, "# waiting jobs")
-				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "chunk ID in queue")
+				assert.Equal(st, c1.Path, testJobQueue.waitingJobs[0].Status.Chunk.Path, "chunk Path in queue")
 				assert.Equal(st, Waiting, testJobQueue.waitingJobs[0].Status.State, "job state")
 
 				return nil
@@ -100,8 +101,8 @@ func TestAdd(t *testing.T) {
 			description: "returns the right number of waiting jobs",
 			test: func(st *testing.T) error {
 				testJobQueue := JobQueue{}
-				c1 := Chunk{ID: "asdf1234"}
-				c2 := Chunk{ID: "1234asdf"}
+				c1 := Chunk{UploadID: "asdf1234"}
+				c2 := Chunk{UploadID: "1234asdf"}
 				_, err := testJobQueue.Add(c1)
 				if err != nil {
 					return err
@@ -124,8 +125,8 @@ func TestAdd(t *testing.T) {
 					MaxJobs: 2,
 					Open:    true,
 				}
-				c1 := Chunk{ID: "asdf1234"}
-				c2 := Chunk{ID: "1234asdf"}
+				c1 := Chunk{UploadID: "asdf1234"}
+				c2 := Chunk{UploadID: "1234asdf"}
 				_, err := testJobQueue.Add(c1)
 				if err != nil {
 					return err
@@ -149,8 +150,8 @@ func TestAdd(t *testing.T) {
 					MaxJobs: 1,
 					Open:    true,
 				}
-				c1 := Chunk{ID: "asdf1234"}
-				c2 := Chunk{ID: "1234asdf"}
+				c1 := Chunk{UploadID: "asdf1234"}
+				c2 := Chunk{UploadID: "1234asdf"}
 				_, err := testJobQueue.Add(c1)
 				if err != nil {
 					return err
@@ -171,8 +172,8 @@ func TestAdd(t *testing.T) {
 			description: "keeps adding new waiting jobs",
 			test: func(st *testing.T) error {
 				testJobQueue := JobQueue{}
-				c1 := Chunk{ID: "asdf1234"}
-				c2 := Chunk{ID: "1234asdf"}
+				c1 := Chunk{UploadID: "asdf1234"}
+				c2 := Chunk{UploadID: "1234asdf"}
 				_, err := testJobQueue.Add(c1)
 				if err != nil {
 					return err
@@ -183,8 +184,8 @@ func TestAdd(t *testing.T) {
 				}
 
 				assert.Len(st, testJobQueue.waitingJobs, 2, "# waiting jobs")
-				assert.Equal(st, c1.ID, testJobQueue.waitingJobs[0].Status.Chunk.ID, "chunk ID in queue")
-				assert.Equal(st, c2.ID, testJobQueue.waitingJobs[1].Status.Chunk.ID, "chunk ID in queue")
+				assert.Equal(st, c1.Path, testJobQueue.waitingJobs[0].Status.Chunk.Path, "chunk Path in queue")
+				assert.Equal(st, c2.Path, testJobQueue.waitingJobs[1].Status.Chunk.Path, "chunk Path in queue")
 
 				return nil
 			},
@@ -238,8 +239,8 @@ func TestActivateOldestWaitingJob(t *testing.T) {
 				testJobQueue := JobQueue{
 					MaxJobs: 1,
 				}
-				c1 := Chunk{ID: "asdf1234"}
-				c2 := Chunk{ID: "1234asdf"}
+				c1 := Chunk{UploadID: "asdf1234"}
+				c2 := Chunk{UploadID: "1234asdf"}
 				_, err := testJobQueue.Add(c1)
 				if err != nil {
 					return err
@@ -254,7 +255,7 @@ func TestActivateOldestWaitingJob(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, c1.ID, testJobQueue.activeJobs[0].Status.Chunk.ID, "chunk IDs")
+				assert.Equal(st, c1.Path, testJobQueue.activeJobs[0].Status.Chunk.Path, "chunk Paths")
 
 				return nil
 			},
@@ -350,7 +351,7 @@ func TestNext(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, j.Status.Chunk.ID, testJobQueue.activeJobs[0].Status.Chunk.ID, "chunk IDs match")
+				assert.Equal(st, j.Status.Chunk.Path, testJobQueue.activeJobs[0].Status.Chunk.Path, "chunk Paths match")
 
 				return nil
 			},
@@ -370,7 +371,7 @@ func TestNext(t *testing.T) {
 					return err
 				}
 
-				assert.Equal(st, j.Status.Chunk.ID, testJobQueue.activeJobs[1].Status.Chunk.ID, "chunk IDs match")
+				assert.Equal(st, j.Status.Chunk.Path, testJobQueue.activeJobs[1].Status.Chunk.Path, "chunk Paths match")
 
 				return nil
 			},
@@ -470,7 +471,7 @@ func TestComplete(t *testing.T) {
 
 				_, err = testJobQueue.Complete(j2)
 
-				assert.Equal(st, j2.Status.Chunk.ID, testJobQueue.completedJobs[0].Status.Chunk.ID, "completed job ID")
+				assert.Equal(st, j2.Status.Chunk.Path, testJobQueue.completedJobs[0].Status.Chunk.Path, "completed job Path")
 
 				return err
 			},
@@ -519,7 +520,7 @@ func TestComplete(t *testing.T) {
 				}
 
 				assert.Len(st, testJobQueue.activeJobs, 2, "# active jobs")
-				assert.Equal(st, c.ID, testJobQueue.activeJobs[1].Status.Chunk.ID, "newest chunk ID")
+				assert.Equal(st, c.Path, testJobQueue.activeJobs[1].Status.Chunk.Path, "newest chunk Path")
 
 				return err
 			},
@@ -557,14 +558,14 @@ func TestComplete(t *testing.T) {
 				_, err := testJobQueue.Complete(&Job{
 					Status: Status{
 						Chunk: &Chunk{
-							ID: "qwertyuiop",
+							Path: "qwertyuiop",
 						},
 					},
 				})
 
 				return err
 			},
-			expectedError: fmt.Errorf("job with chunk ID 'qwertyuiop' is not active"),
+			expectedError: fmt.Errorf("job with chunk Path 'qwertyuiop' is not active"),
 		},
 	}
 

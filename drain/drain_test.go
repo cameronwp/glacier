@@ -20,7 +20,8 @@ func failUploader(*jobqueue.Chunk) error {
 
 func randomChunk() *jobqueue.Chunk {
 	return &jobqueue.Chunk{
-		ID: randstr.Hex(8),
+		Path:     randstr.RandomString(10),
+		UploadID: randstr.Hex(8),
 	}
 }
 
@@ -411,7 +412,7 @@ func TestDrain(t *testing.T) {
 							Once()
 
 						d := NewDrain(func(c *jobqueue.Chunk) error {
-							if c.ID == j2.Status.Chunk.ID {
+							if c.Path == j2.Status.Chunk.Path {
 								if !j2.AtMaxAttempts() {
 									return fmt.Errorf("error")
 								}
@@ -460,7 +461,7 @@ func TestDrain(t *testing.T) {
 							Once()
 
 						d := NewDrain(func(c *jobqueue.Chunk) error {
-							if c.ID == failingJob.Status.Chunk.ID {
+							if c.Path == failingJob.Status.Chunk.Path {
 								return fmt.Errorf("error")
 							}
 							return nil
@@ -470,7 +471,7 @@ func TestDrain(t *testing.T) {
 						timesSeen := 0
 						for i := 0; i < times*2+jobqueue.MaxJobAttempts-1; i++ {
 							val := <-d.Schan
-							if val.Chunk.ID == failingJob.Status.Chunk.ID {
+							if val.Chunk.Path == failingJob.Status.Chunk.Path {
 								timesSeen++
 								if timesSeen == jobqueue.MaxJobAttempts+1 {
 									// maxjobattempts times it will be in progress, the last will be erred

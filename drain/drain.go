@@ -87,7 +87,7 @@ func attemptJob(a Actor, j *jobqueue.Job) bool {
 		if !j.AtMaxAttempts() {
 			// TODO: better logging
 			// TODO: report restarting?
-			fmt.Printf("%s failed, retrying | %s\n", j.Status.Chunk.ID, err)
+			fmt.Printf("%s failed, retrying | %s\n", j.Status.Chunk.Path, err)
 			j.Status.State = jobqueue.Waiting
 			return false
 		}
