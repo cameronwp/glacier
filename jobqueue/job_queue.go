@@ -57,6 +57,9 @@ func (j *Job) AtMaxAttempts() bool {
 	return j.numAttempts >= MaxJobAttempts
 }
 
+// TODO: compare path, bytes to determine equivalency
+// TODO: ensure a chunk is not nil
+
 var (
 	// ErrInvalidChunk occurs when attempting to create a job with a chunk without
 	// an ID.

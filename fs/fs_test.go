@@ -77,6 +77,7 @@ func TestCreateChunks(t *testing.T) {
 				return err
 			},
 		},
+		// TODO: a file that's a lot larger
 		{
 			description: "succeeds when a file is smaller than the partsize",
 			test: func(st *testing.T) error {
