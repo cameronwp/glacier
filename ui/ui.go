@@ -31,7 +31,7 @@ func Render() {
 
 	shift := float64(0)
 	sinps := func(x float64) []float64 {
-		n := 220
+		n := 110
 		ps := make([]float64, n)
 		for i := range ps {
 			ps[i] = 1 + math.Sin(float64(i)/5+x)
@@ -42,17 +42,19 @@ func Render() {
 	rateGraph := termui.NewLineChart()
 	rateGraph.BorderLabel = "Upload Rate" // update if using KB, MB, etc
 	rateGraph.Data = sinps(shift)
+	rateGraph.DataLabels = make([]string, 220)
 	rateGraph.Height = 12
 	rateGraph.AxesColor = termui.ColorWhite
 	rateGraph.LineColor = termui.ColorGreen | termui.AttrBold
 
 	termui.Body.AddRows(
 		termui.NewRow(
-			termui.NewCol(3, 0, vaultPar),
-			termui.NewCol(9, 0, totalGauge),
+			termui.NewCol(6, 0, vaultPar),
+			termui.NewCol(6, 0, totalGauge),
 		),
 		termui.NewRow(
-			termui.NewCol(12, 0, rateGraph),
+			termui.NewCol(6, 0, nil),
+			termui.NewCol(6, 0, rateGraph),
 		),
 	)
 
