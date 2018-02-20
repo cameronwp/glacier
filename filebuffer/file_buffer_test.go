@@ -46,11 +46,11 @@ func TestFetchBuffer(t *testing.T) {
 				fc, err := osb.FetchAndHash(&readerMock, filepath, startB, endB)
 
 				assert.Len(st, osb, 1, "has hashes for 1 file")
-				assert.Equal(st, randomBuffer, fc.buf, "buffer is right")
+				assert.Equal(st, randomBuffer, fc.Buf, "buffer is right")
 				assert.Equal(st, startB, osb[filepath][0].startB, "right start bytes")
 				assert.Equal(st, endB, osb[filepath][0].endB, "right end bytes")
-				assert.Equal(st, randomBufferHash[:], fc.sha256, "hash is right in FileChunk")
-				assert.Equal(st, randomBufferHash[:], osb[filepath][0].sha256, "hash is right in FileHash")
+				assert.Equal(st, randomBufferHash[:], fc.SHA256, "hash is right in FileChunk")
+				assert.Equal(st, randomBufferHash[:], osb[filepath][0].SHA256, "hash is right in FileHash")
 				return err
 			},
 		},
@@ -124,12 +124,12 @@ func TestSortHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
@@ -148,22 +148,22 @@ func TestSortHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   30,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 30,
 						endB:   40,
 					},
@@ -213,7 +213,7 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
@@ -222,7 +222,7 @@ func TestGetFileHashes(t *testing.T) {
 				hashes, ok := getFileHashes(int64(10), fileHashes)
 				assert.True(st, ok)
 				assert.Len(st, hashes, 1, "one hash")
-				assert.Equal(st, hashes[0], fileHashes[0].sha256, "hashes are the same")
+				assert.Equal(st, hashes[0], fileHashes[0].SHA256, "hashes are the same")
 				return nil
 			},
 		},
@@ -231,7 +231,7 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
@@ -247,12 +247,12 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
@@ -260,8 +260,8 @@ func TestGetFileHashes(t *testing.T) {
 
 				hashes, ok := getFileHashes(int64(20), fileHashes)
 				assert.Len(st, hashes, 2, "2 hashes")
-				assert.Equal(st, hashes[0], fileHashes[0].sha256, "first hash is the same")
-				assert.Equal(st, hashes[1], fileHashes[1].sha256, "second hash is the same")
+				assert.Equal(st, hashes[0], fileHashes[0].SHA256, "first hash is the same")
+				assert.Equal(st, hashes[1], fileHashes[1].SHA256, "second hash is the same")
 				assert.True(st, ok)
 				return nil
 			},
@@ -271,12 +271,12 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
@@ -292,17 +292,17 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   27,
 					},
@@ -319,12 +319,12 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
@@ -340,12 +340,12 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   27,
 					},
@@ -361,17 +361,17 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   27,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 10,
 						endB:   20,
 					},
@@ -387,12 +387,12 @@ func TestGetFileHashes(t *testing.T) {
 			test: func(st *testing.T) error {
 				fileHashes := []FileHash{
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: []byte(randstr.RandomString(8)),
+						SHA256: []byte(randstr.RandomString(8)),
 						startB: 20,
 						endB:   27,
 					},
@@ -441,17 +441,17 @@ func TestTreeHash(t *testing.T) {
 
 				osb[filepath] = []FileHash{
 					{
-						sha256: hashes[0],
+						SHA256: hashes[0],
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: hashes[1],
+						SHA256: hashes[1],
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: hashes[2],
+						SHA256: hashes[2],
 						startB: 20,
 						endB:   27,
 					},
@@ -483,17 +483,17 @@ func TestTreeHash(t *testing.T) {
 
 				osb[filepath] = []FileHash{
 					{
-						sha256: hashes[1],
+						SHA256: hashes[1],
 						startB: 10,
 						endB:   20,
 					},
 					{
-						sha256: hashes[0],
+						SHA256: hashes[0],
 						startB: 0,
 						endB:   10,
 					},
 					{
-						sha256: hashes[2],
+						SHA256: hashes[2],
 						startB: 20,
 						endB:   27,
 					},
@@ -523,7 +523,7 @@ func TestTreeHash(t *testing.T) {
 
 				osb[filepath] = []FileHash{
 					{
-						sha256: hashes[0],
+						SHA256: hashes[0],
 						startB: 0,
 						endB:   10,
 					},
@@ -551,7 +551,7 @@ func TestTreeHash(t *testing.T) {
 
 				osb[filepath] = []FileHash{
 					{
-						sha256: hashes[0],
+						SHA256: hashes[0],
 						startB: 0,
 						endB:   10,
 					},

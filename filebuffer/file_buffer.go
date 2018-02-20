@@ -22,13 +22,13 @@ var (
 
 // FileChunk is a literal chunk of a file alongside its sha256 hash.
 type FileChunk struct {
-	buf    []byte
-	sha256 []byte
+	Buf    []byte
+	SHA256 []byte
 }
 
 // FileHash represents a hash and the part of the file it represents.
 type FileHash struct {
-	sha256 []byte
+	SHA256 []byte
 	startB int64
 	endB   int64
 }
@@ -62,11 +62,11 @@ func (osb OSBuffer) FetchAndHash(f io.ReaderAt, filepath string, startB int64, e
 	fileHash := FileHash{
 		startB: startB,
 		endB:   endB,
-		sha256: hash[:],
+		SHA256: hash[:],
 	}
 	fileChunk := FileChunk{
-		buf:    buf,
-		sha256: hash[:],
+		Buf:    buf,
+		SHA256: hash[:],
 	}
 
 	if _, ok := osb[filepath]; !ok {
@@ -79,8 +79,10 @@ func (osb OSBuffer) FetchAndHash(f io.ReaderAt, filepath string, startB int64, e
 	return fileChunk, nil
 }
 
-// TreeHash returns the full hash for a file. Returns ErrMissingFileChunks if
-// the whole file has not been buffered and hashed.
+// TreeHash returns the full hash for a file. It exits quickly if unable to
+// compute the Treehash and is safe to use as a check to see if all chunks of a
+// file have been hashed. Returns ErrMissingFileChunks if the whole file has not
+// been buffered and hashed.
 func (osb OSBuffer) TreeHash(chunker fs.Chunker, filepath string) ([]byte, error) {
 	filesize, err := chunker.GetFilesize(filepath)
 	if err != nil {
@@ -134,7 +136,7 @@ func getFileHashes(filesize int64, fileHashes []FileHash) ([][]byte, bool) {
 			}
 		}
 
-		hashes = append(hashes, hash.sha256)
+		hashes = append(hashes, hash.SHA256)
 		lastEndB = hash.endB
 		complete = true
 	}
