@@ -9,9 +9,9 @@ import (
 	"github.com/cameronwp/glacier/fs/fsmocks"
 
 	"github.com/cameronwp/glacier/ioiface/ioifacemocks"
+	"github.com/cameronwp/glacier/randstr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/thanhpk/randstr"
 )
 
 func TestFetchBuffer(t *testing.T) {

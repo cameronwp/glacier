@@ -6,8 +6,8 @@ import (
 
 	"github.com/cameronwp/glacier/jobqueue"
 	"github.com/cameronwp/glacier/jobqueue/jobqueuemocks"
+	"github.com/cameronwp/glacier/randstr"
 	"github.com/stretchr/testify/assert"
-	"github.com/thanhpk/randstr"
 )
 
 func nilUploader(*jobqueue.Chunk) error {
@@ -21,7 +21,7 @@ func failUploader(*jobqueue.Chunk) error {
 func randomChunk() *jobqueue.Chunk {
 	return &jobqueue.Chunk{
 		Path:     randstr.RandomString(10),
-		UploadID: randstr.Hex(8),
+		UploadID: randstr.RandomHex(8),
 	}
 }
 

@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cameronwp/glacier/randstr"
 	"github.com/stretchr/testify/assert"
-	"github.com/thanhpk/randstr"
 )
 
 func randomChunk() *Chunk {
 	return &Chunk{
-		Path:     randstr.Hex(8),
+		Path:     randstr.RandomHex(8),
 		UploadID: randstr.RandomString(10),
 	}
 }

@@ -7,7 +7,6 @@ get-dependencies:
 	go get golang.org/x/tools/cmd/goimports
 	go get github.com/golang/lint/golint
 	go get github.com/kisielk/errcheck
-	go get -u github.com/thanhpk/randstr
 
 check:
 	go fmt
