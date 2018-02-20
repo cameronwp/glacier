@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/glacier"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +13,8 @@ var inventoryCmd = &cobra.Command{
 	Short: "Trigger a vault inventory",
 	Long:  `The inventory will be published to the given SNS.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return initiateJob()
+		// return initiateJob()
+		return nil
 	},
 }
 
@@ -34,23 +32,23 @@ func init() {
 	}
 }
 
-func initiateJob() error {
-	input := &glacier.InitiateJobInput{
-		AccountId: aws.String("-"),
-		JobParameters: &glacier.JobParameters{
-			Description: aws.String("My inventory job"),
-			Format:      aws.String("CSV"),
-			SNSTopic:    aws.String(sns),
-			Type:        aws.String("inventory-retrieval"),
-		},
-		VaultName: aws.String(vault),
-	}
+// func initiateJob() error {
+// 	input := &glacier.InitiateJobInput{
+// 		AccountId: aws.String("-"),
+// 		JobParameters: &glacier.JobParameters{
+// 			Description: aws.String("My inventory job"),
+// 			Format:      aws.String("CSV"),
+// 			SNSTopic:    aws.String(sns),
+// 			Type:        aws.String("inventory-retrieval"),
+// 		},
+// 		VaultName: aws.String(vault),
+// 	}
 
-	result, err := svc.InitiateJob(input)
-	if err != nil {
-		return formatAWSError(err)
-	}
+// 	result, err := svc.InitiateJob(input)
+// 	if err != nil {
+// 		return formatAWSError(err)
+// 	}
 
-	fmt.Println(result)
-	return nil
-}
+// 	fmt.Println(result)
+// 	return nil
+// }
