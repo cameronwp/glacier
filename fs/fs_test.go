@@ -66,7 +66,7 @@ func TestCreateChunks(t *testing.T) {
 			description: "succeeds when a file is larger than the partsize",
 			test: func(st *testing.T) error {
 				chunker := &OSChunker{}
-				chunks, err := chunker.CreateChunks("asdf", "asdf", int64(10), int64(12))
+				chunks, err := chunker.CreateChunks("path/to/file", int64(10), int64(12))
 
 				assert.Len(st, chunks, 2, "2 chunks")
 
@@ -81,7 +81,7 @@ func TestCreateChunks(t *testing.T) {
 			description: "succeeds when a file is much larger than the partsize",
 			test: func(st *testing.T) error {
 				chunker := &OSChunker{}
-				chunks, err := chunker.CreateChunks("asdf", "asdf", int64(10), int64(117))
+				chunks, err := chunker.CreateChunks("path/to/file", int64(10), int64(117))
 
 				assert.Len(st, chunks, 12, "12 chunks")
 
@@ -98,7 +98,7 @@ func TestCreateChunks(t *testing.T) {
 			description: "succeeds when a file is smaller than the partsize",
 			test: func(st *testing.T) error {
 				chunker := &OSChunker{}
-				chunks, err := chunker.CreateChunks("asdf", "asdf", int64(12), int64(10))
+				chunks, err := chunker.CreateChunks("path/to/file", int64(12), int64(10))
 
 				assert.Len(st, chunks, 1, "1 chunk")
 
@@ -111,7 +111,7 @@ func TestCreateChunks(t *testing.T) {
 			description: "returns an empty slice if it receives a filesize of 0 bytes",
 			test: func(st *testing.T) error {
 				chunker := &OSChunker{}
-				chunks, err := chunker.CreateChunks("asdf", "asdf", int64(12), int64(0))
+				chunks, err := chunker.CreateChunks("path/to/file", int64(12), int64(0))
 
 				assert.Len(st, chunks, 0, "0 chunk")
 				return err

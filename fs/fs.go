@@ -9,12 +9,14 @@ import (
 	"github.com/cameronwp/glacier/jobqueue"
 )
 
-const startingPartSize = int64(1 << 23) // 8MB
+// DefaultPartSize is the default size of upload parts.
+// const DefaultPartSize = int64(1 << 23) // 8MB
+const DefaultPartSize = int64(1 << 20) // 1MB
 
 // Chunker can create file chunks.
 type Chunker interface {
 	GetFilesize(string) (int64, error)
-	CreateChunks(string, string, int64, int64) ([]jobqueue.Chunk, error)
+	CreateChunks(string, int64, int64) ([]jobqueue.Chunk, error)
 }
 
 // OSChunker implements Chunker using os.
@@ -73,13 +75,13 @@ func GetFilepaths(fp string) ([]string, error) {
 
 // ChunkFile creates chunks from a file. You must already have an upload ID and
 // a known part size. Chunk sizes may be determined on the fly.
-func ChunkFile(fs Chunker, filepath string, uploadID string, partsize int64) ([]jobqueue.Chunk, error) {
+func ChunkFile(fs Chunker, filepath string, partsize int64) ([]jobqueue.Chunk, error) {
 	totalSize, err := fs.GetFilesize(filepath)
 	if err != nil {
 		return nil, err
 	}
 
-	return fs.CreateChunks(filepath, uploadID, partsize, totalSize)
+	return fs.CreateChunks(filepath, partsize, totalSize)
 }
 
 // GetFilesize returns the size of a file.
@@ -105,7 +107,7 @@ func (*OSChunker) GetFilesize(filepath string) (int64, error) {
 
 // CreateChunks does the math to determine start byte and end byte for each
 // chunk.
-func (*OSChunker) CreateChunks(filepath string, uploadID string, partsize int64, totalSize int64) ([]jobqueue.Chunk, error) {
+func (*OSChunker) CreateChunks(filepath string, partsize int64, totalSize int64) ([]jobqueue.Chunk, error) {
 	var aggregator []jobqueue.Chunk
 
 	startB := int64(0)
@@ -119,11 +121,11 @@ func (*OSChunker) CreateChunks(filepath string, uploadID string, partsize int64,
 
 		endB := startB + int64(contentLength)
 
+		// note that there is no UploadID. it gets added later
 		aggregator = append(aggregator, jobqueue.Chunk{
-			UploadID: uploadID,
-			Path:     filepath,
-			StartB:   startB,
-			EndB:     endB,
+			Path:   filepath,
+			StartB: startB,
+			EndB:   endB,
 		})
 
 		startB = endB
@@ -131,21 +133,3 @@ func (*OSChunker) CreateChunks(filepath string, uploadID string, partsize int64,
 
 	return aggregator, nil
 }
-
-func getPartsize() int64 {
-	// TODO: something clever to determine part size on the fly
-	return startingPartSize
-}
-
-// TODO:
-// * upload files
-// * calculate rate of upload
-// * display file status
-// https://github.com/gizak/termui
-
-// TODO:
-// * arrange list of files from smallest to biggest
-// * upload the first few
-// * test rate of upload
-// * change part size, # connections
-// * compare rate of upload
