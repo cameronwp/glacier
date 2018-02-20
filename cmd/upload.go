@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -55,15 +56,14 @@ func init() {
 }
 
 func execute(svc glacieriface.GlacierAPI, jq jobqueue.FIFOQueuer, chunker fs.Chunker, fb filebuffer.BufferFetcherHasher, files []string) error {
-	totalJobs, err := addJobs(files, jq, chunker)
+	_, err := addJobs(files, jq, chunker)
 	if err != nil {
 		return err
 	}
 
 	// where uploading individual parts happens
 	upload := func(c *jobqueue.Chunk) error {
-		// note that this does not necessarily initiate a new upload
-		_, err := InitiateMultiPartUpload(svc, c.Path, fs.DefaultPartSize)
+		uploadID, err := GetUploadID(svc, c.Path, fs.DefaultPartSize)
 		if err != nil {
 			return err
 		}
@@ -79,45 +79,30 @@ func execute(svc glacieriface.GlacierAPI, jq jobqueue.FIFOQueuer, chunker fs.Chu
 			}
 		}()
 
-		_, err = fb.FetchAndHash(f, c.Path, c.StartB, c.EndB)
+		fileChunk, err := fb.FetchAndHash(f, c.Path, c.StartB, c.EndB)
 		if err != nil {
 			return err
 		}
-		// fmt.Printf("uploading %s, %d-%d\n", c.Path, c.StartB, c.EndB)
-		// fmt.Printf("buf len %d | hash %x\n", len(fileChunk.Buf), fileChunk.SHA256)
+
+		_, err = svc.UploadMultipartPart(&glacier.UploadMultipartPartInput{
+			AccountId: aws.String("-"),
+			Body:      bytes.NewReader(fileChunk.Buf),
+			Checksum:  aws.String(fmt.Sprintf("%x", fileChunk.SHA256)),
+			Range:     aws.String(fmt.Sprintf("bytes %d-%d/*", c.StartB, c.EndB-1)),
+			UploadId:  aws.String(uploadID),
+			VaultName: aws.String(vault),
+		})
+		if err != nil {
+			return formatAWSError(err)
+		}
 		return nil
 	}
 
 	drain := drain.NewDrain(upload)
 	go drain.Drain(jq)
 
-	// listen for upload status updates
-	for i := 0; i < totalJobs*2; i++ {
-		status := <-drain.Schan
-		if status.State == jobqueue.Completed {
-			// check if the whole file is done, and get the TreeHash if so
-			treehash, err := fb.TreeHash(chunker, status.Chunk.Path)
-			if err != nil {
-				if err == filebuffer.ErrMissingFileChunks {
-					// file isn't done, no biggie
-					continue
-				} else {
-					fmt.Printf("unexpected treehash error | %s\n", err)
-					continue
-				}
-			}
+	collectResults(svc, chunker, fb, drain)
 
-			// TODO: actually complete the upload
-			fmt.Printf("%s done | treehash %x\n", status.Chunk.Path, treehash)
-		}
-	}
-
-	// TODO: setup https://github.com/gizak/termui
-
-	// TODO:
-	// * upload files
-	// * calculate rate of upload
-	// * display file status
 	return nil
 }
 
@@ -142,9 +127,9 @@ func addJobs(files []string, jq jobqueue.FIFOQueuer, chunker fs.Chunker) (int, e
 
 var uploadIDs = make(map[string]string)
 
-// InitiateMultiPartUpload will either return the UploadID because it was
-// already initiated, or actually initiate it.
-func InitiateMultiPartUpload(svc glacieriface.GlacierAPI, path string, partsize int64) (string, error) {
+// GetUploadID will either return the `UploadID` because it was already
+// initiated, or actually initiate it.
+func GetUploadID(svc glacieriface.GlacierAPI, path string, partsize int64) (string, error) {
 	if uploadID, ok := uploadIDs[path]; ok {
 		return uploadID, nil
 	}
@@ -170,8 +155,14 @@ func InitiateMultiPartUpload(svc glacieriface.GlacierAPI, path string, partsize 
 }
 
 // GetDescription gets the relative path to the file from the target directory.
+// `target` can be a relative path, while `path` must be an absolute path.
 func GetDescription(target string, path string) (string, error) {
-	baseName, err := filepath.Rel(target, path)
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return "", err
+	}
+
+	baseName, err := filepath.Rel(absTarget, path)
 	if err != nil {
 		return "", err
 	}
@@ -184,100 +175,67 @@ func GetDescription(target string, path string) (string, error) {
 	return baseName, nil
 }
 
-// func uploadFileMultipart(svc *glacier.Glacier, fp string) error {
-// 	var partSize = int64(1 << 20) // 1MB
-// 	baseName := filepath.Base(fp)
+func collectResults(svc glacieriface.GlacierAPI, chunker fs.Chunker, fb filebuffer.BufferFetcherHasher, drain *drain.Drain) {
+	// termui here
+	go onComplete(svc, chunker, fb, drain)
+	go onError(drain)
+}
 
-// 	// TODO: move this to awsiface
-// 	initResult, err := svc.InitiateMultiPartUpload(&glacier.InitiateMultiPartUploadInput{
-// 		AccountId:          aws.String("-"),
-// 		ArchiveDescription: aws.String(baseName),
-// 		PartSize:           aws.String(fmt.Sprintf("%d", partSize)),
-// 		VaultName:          aws.String(vault),
-// 	})
-// 	if err != nil {
-// 		return formatAWSError(err)
-// 	}
+func onComplete(svc glacieriface.GlacierAPI, chunker fs.Chunker, fb filebuffer.BufferFetcherHasher, drain *drain.Drain) {
+	for {
+		status := <-drain.Schan
 
-// 	f, err := os.Open(fp)
-// 	if err != nil {
-// 		return err
-// 	}
+		if status.State != jobqueue.Completed {
+			continue
+		}
 
-// 	// TODO: zip the file first
+		// check if the whole file is done, and get the TreeHash if so
+		treehash, err := fb.TreeHash(chunker, status.Chunk.Path)
+		if err != nil {
+			if err == filebuffer.ErrMissingFileChunks {
+				// file isn't done, no biggie
+				continue
+			} else {
+				fmt.Printf("unexpected treehash error | %s\n", err)
+				continue
+			}
+		}
 
-// 	hashes := [][]byte{}
+		// file is done, complete the upload
+		totalSize, err := chunker.GetFilesize(status.Chunk.Path)
+		if err != nil {
+			fmt.Printf("unexpected error before completing upload | %s\n", err)
+			continue
+		}
 
-// 	var totalSize int64
-// 	if stats, err := f.Stat(); err == nil {
-// 		totalSize = stats.Size()
-// 	} else {
-// 		return err
-// 	}
+		uploadID, err := GetUploadID(svc, status.Chunk.Path, fs.DefaultPartSize)
+		if err != nil {
+			fmt.Printf("unexpected error before completing upload | %s\n", err)
+			continue
+		}
 
-// 	bar := pb.ProgressBarTemplate(fmt.Sprintf(`%s: {{bar . | green}} {{counters . | blue }}`, baseName)).Start64(totalSize)
+		result, err := svc.CompleteMultipartUpload(&glacier.CompleteMultipartUploadInput{
+			AccountId:   aws.String("-"),
+			ArchiveSize: aws.String(fmt.Sprintf("%d", totalSize)),
+			Checksum:    aws.String(fmt.Sprintf("%x", treehash)),
+			UploadId:    aws.String(uploadID),
+			VaultName:   aws.String(vault),
+		})
+		if err != nil {
+			fmt.Println(formatAWSError(err))
+		}
 
-// 	startB := int64(0)
-// 	var wg sync.WaitGroup
-// 	for {
-// 		wg.Add(1)
+		// TODO: this needs to be logged somewhere
+		fmt.Println(result)
+	}
+}
 
-// 		// either the part size, or the amount of file remaining, whichever is smaller
-// 		contentLength := int(math.Min(float64(partSize), float64(totalSize-startB)))
-// 		buf := make([]byte, contentLength)
-// 		n, _ := io.ReadFull(f, buf)
-// 		if n == 0 {
-// 			wg.Done()
-// 			break
-// 		}
-
-// 		endB := startB + int64(n)
-
-// 		hash := sha256.Sum256(buf[:n])
-// 		hashes = append(hashes, hash[:])
-
-// 		go func(b []byte, s int64, e int64, h string) {
-// 			_, err := svc.UploadMultipartPart(&glacier.UploadMultipartPartInput{
-// 				AccountId: aws.String("-"),
-// 				Body:      bytes.NewReader(buf),
-// 				Checksum:  aws.String(h),
-// 				Range:     aws.String(fmt.Sprintf("bytes %d-%d/*", s, e-1)),
-// 				UploadId:  aws.String(*initResult.UploadId),
-// 				VaultName: aws.String(vault),
-// 			})
-// 			if err != nil {
-// 				// TODO: queue the part to be reuploaded
-// 				panic(formatAWSError(err))
-// 			}
-// 			bar.Add(contentLength)
-// 			wg.Done()
-// 		}(buf, startB, endB, fmt.Sprintf("%x", hash))
-
-// 		startB = endB
-// 	}
-
-// 	wg.Wait()
-
-// 	input := &glacier.CompleteMultipartUploadInput{
-// 		AccountId:   aws.String("-"),
-// 		ArchiveSize: aws.String(fmt.Sprintf("%d", totalSize)),
-// 		Checksum:    aws.String(fmt.Sprintf("%x", glacier.ComputeTreeHash(hashes))),
-// 		UploadId:    aws.String(*initResult.UploadId),
-// 		VaultName:   aws.String(vault),
-// 	}
-// 	result, err := svc.CompleteMultipartUpload(input)
-// 	if err != nil {
-// 		return formatAWSError(err)
-// 	}
-
-// 	bar.Finish()
-
-// 	// TODO: sync the archive with an S3 bucket
-// 	fmt.Println(result)
-// 	fmt.Println(*initResult.UploadId)
-
-// 	return nil
-// }
+func onError(drain *drain.Drain) {
+	for {
+		status := <-drain.Echan
+		fmt.Println(status)
+	}
+}
 
 func formatAWSError(err error) error {
 	if aerr, ok := err.(awserr.Error); ok {

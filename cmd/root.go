@@ -67,6 +67,7 @@ var genDocsCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(
 		inventoryCmd,
+		listCmd,
 		uploadCmd,
 		genDocsCmd,
 	)
