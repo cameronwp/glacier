@@ -229,7 +229,7 @@ func TestAdd(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}
@@ -356,7 +356,7 @@ func TestActivateOldestWaitingJob(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}
@@ -443,7 +443,7 @@ func TestNext(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}
@@ -606,7 +606,7 @@ func TestComplete(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}

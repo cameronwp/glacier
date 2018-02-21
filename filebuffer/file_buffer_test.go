@@ -105,7 +105,7 @@ func TestFetchBuffer(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}
@@ -184,7 +184,7 @@ func TestSortHashes(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}
@@ -410,7 +410,7 @@ func TestGetFileHashes(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}
@@ -574,7 +574,7 @@ func TestTreeHash(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}

@@ -86,7 +86,7 @@ func TestAttemptJob(t *testing.T) {
 		t.Run(tc.description, func(st *testing.T) {
 			err := tc.test(st)
 			if tc.expectedError != nil {
-				assert.Equal(st, err, tc.expectedError)
+				assert.Equal(st, tc.expectedError, err)
 			} else {
 				assert.NoError(st, err)
 			}
@@ -493,7 +493,7 @@ func TestDrain(t *testing.T) {
 			for _, tc := range s.testCases {
 				err := tc.test(st)
 				if tc.expectedError != nil {
-					assert.Equal(st, err, tc.expectedError)
+					assert.Equal(st, tc.expectedError, err)
 				} else {
 					assert.NoError(st, err)
 				}
