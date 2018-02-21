@@ -14,9 +14,9 @@ func Render() {
 	}
 	defer termui.Close()
 
-	vaultPar := termui.NewPar("Valve Documentary")
-	vaultPar.BorderLabel = "Vault"
-	vaultPar.Height = 3
+	vaultPar := termui.NewPar("Valve Documentary\nus-east-1\npath/to/target\n10 files")
+	vaultPar.BorderLabel = "Batch Info"
+	vaultPar.Height = 6
 	vaultPar.TextFgColor = termui.ColorWhite
 	vaultPar.BorderFg = termui.ColorCyan
 
@@ -43,20 +43,18 @@ func Render() {
 	rateGraph.BorderLabel = "Upload Rate" // update if using KB, MB, etc
 	rateGraph.Data = sinps(shift)
 	rateGraph.DataLabels = make([]string, 220)
-	rateGraph.Height = 12
+	rateGraph.Height = 9
 	rateGraph.AxesColor = termui.ColorWhite
 	rateGraph.LineColor = termui.ColorGreen | termui.AttrBold
 
 	termui.Body.AddRows(
 		termui.NewRow(
-			termui.NewCol(6, 0, vaultPar),
-			termui.NewCol(6, 0, totalGauge),
-		),
-		termui.NewRow(
-			termui.NewCol(6, 0, nil),
+			termui.NewCol(6, 0, vaultPar, totalGauge),
 			termui.NewCol(6, 0, rateGraph),
 		),
 	)
+
+	// display controls at the bottom
 
 	termui.Body.Align()
 	termui.Render(termui.Body)

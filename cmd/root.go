@@ -74,4 +74,6 @@ func init() {
 
 	RootCmd.PersistentFlags().String("profile", "default", "AWS credentials profile to use")
 	RootCmd.PersistentFlags().String("region", "us-east-1", "AWS region of the vault")
+
+	// TODO: probably need a flag for type of output -termui or logging stream
 }
